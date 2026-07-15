@@ -1,0 +1,109 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  
+  	<parent>
+		<groupId>org.scijava</groupId>
+		<artifactId>pom-scijava</artifactId>
+		<version>13.0.0</version>
+		<relativePath />
+	</parent>
+  
+  <groupId>uk.ac.cam.gurdon</groupId>
+  <artifactId>Deadpanorama</artifactId>
+  <version>0.10.2</version>
+  <name>Deadpanorama</name>
+  <description>Deadpanorama</description>
+  
+  <repositories>
+		<repository>
+			<id>imagej.public</id>
+			<url>http://maven.imagej.net/content/groups/public</url>
+		</repository>
+	</repositories>
+  
+  	<dependencies>
+		<dependency>
+			<groupId>net.imagej</groupId>
+			<artifactId>imagej</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>net.imagej</groupId>
+			<artifactId>ij</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>net.imagej</groupId>
+			<artifactId>imagej-legacy</artifactId>
+		</dependency>
+		<dependency>
+		    <groupId>org.scijava</groupId>
+		    <artifactId>scijava-common</artifactId>
+		</dependency>
+		<dependency>
+		    <groupId>sc.fiji</groupId>
+		    <artifactId>imagescience</artifactId>
+		    <version>3.0.0</version>
+		</dependency>
+		<dependency>
+		    <groupId>org.jfree</groupId>
+		    <artifactId>jfreechart</artifactId>
+		</dependency>
+	</dependencies>
+  
+	<inceptionYear>2017</inceptionYear>
+	<organization>
+		<name>Gurdon Institute, University of Cambridge</name>
+		<url>https://www.gurdon.cam.ac.uk/</url>
+	</organization>
+	<licenses>
+		<license>
+			<name>GNU General Public License v3.0 or later</name>
+			<url>https://www.gnu.org/licenses/gpl-3.0.txt</url>
+			<distribution>repo</distribution>
+		</license>
+	</licenses>
+
+	<developers>
+		<!-- Confirmed by Richard Butler by email 2026-09-05; GitHub handle still unconfirmed -->
+		<developer>
+			<id>rsb48</id>
+			<name>Richard Butler</name>
+			<email>rsb48@cam.ac.uk</email>
+			<url>https://www.gurdon.cam.ac.uk/</url>
+			<roles>
+				<role>developer</role>
+			</roles>
+			<properties>
+				<orcid>0000-0002-3885-1332</orcid>
+			</properties>
+		</developer>
+	</developers>
+
+	<mailingLists>
+		<mailingList>
+			<name>ImageJ Forum</name>
+			<archive>http://forum.imagej.net/</archive>
+		</mailingList>
+	</mailingLists>
+
+	<scm>
+		<connection>scm:git:git://github.com/JvdAlab/Drosophila-NSC-mosaicism.git</connection>
+		<developerConnection>scm:git:git@github.com:JvdAlab/Drosophila-NSC-mosaicism.git</developerConnection>
+		<tag>HEAD</tag>
+		<url>https://github.com/JvdAlab/Drosophila-NSC-mosaicism</url>
+	</scm>
+	<issueManagement>
+		<system>GitHub Issues</system>
+		<url>https://github.com/JvdAlab/Drosophila-NSC-mosaicism/issues</url>
+	</issueManagement>
+	<ciManagement>
+		<system>None</system>
+	</ciManagement>
+
+	<properties>
+		<package-name>uk.ac.cam.gurdon.deadpanorama</package-name>
+		<main-class>uk.ac.cam.gurdon.deadpanorama.Deadpanorama</main-class>
+		<license.licenseName>gpl_v3</license.licenseName>
+		<license.copyrightOwners>Richard Butler</license.copyrightOwners>
+	</properties>
+  
+</project>
