@@ -1,0 +1,21 @@
+name: edgeR_pipeline
+
+channels:
+  - conda-forge
+  - bioconda
+
+dependencies:
+  - python=3.10.17
+  - r-base=4.4.3
+  - bioconductor-edger=4.4.2
+  - bioconductor-limma=3.62.2
+  - bioconductor-enhancedvolcano=1.24.0
+  - r-statmod=1.5.0
+  - r-tidyverse=2.0.0
+  - r-readr=2.2.0
+  - r-here=1.0.2
+  - pip
+  - pip:
+      - anndata==0.11.4
+      - numpy==1.26.4
+      - pandas==1.5.3
