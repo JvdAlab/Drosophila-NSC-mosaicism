@@ -1,0 +1,5 @@
+SampleID,Condition,Batch,Replicate,CellRangerSample
+Control-1,Control,Batch1,mCherry-1,mCherry
+ND75-KD-1,ND75-KD,Batch1,ND75-1,ND75
+Control-3,Control,Batch2,mCherry-3,mCherry
+ND75-KD-3,ND75-KD,Batch2,ND75-3,ND75

@@ -1,0 +1,25 @@
+name: scRNA_pipeline
+
+channels:
+  - conda-forge
+  - pytorch
+
+dependencies:
+  - python=3.10.17
+  - r-base=4.4.3
+  - r-seurat=5.4.0
+  - r-matrix=1.7_3
+  - r-ggplot2=4.0.2
+  - r-here=1.0.2
+  - pip
+  - pip:
+      - anndata==0.11.4
+      - matplotlib==3.10.1
+      - numpy==1.26.4
+      - pandas==1.5.3
+      - pyclustree==0.4.0
+      - scanpy==1.11.1
+      - scipy==1.15.2
+      - scvi-tools==1.3.0
+      - seaborn==0.13.2
+      - torch==2.6.0+cu124
