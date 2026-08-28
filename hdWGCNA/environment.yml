@@ -1,0 +1,16 @@
+name: hdWGCNA_pipeline
+
+channels:
+  - conda-forge
+  - bioconda
+
+dependencies:
+  - r-base=4.4.3
+  - r-tidyverse=2.0.0
+  - r-ggplot2=4.0.2
+  - r-patchwork=1.3.2
+  - r-here=1.0.2
+  - r-matrix=1.7_3
+  - r-seurat=5.4.0
+  - r-hdwgcna=0.4.11
+  - bioconductor-wgcna=1.74
