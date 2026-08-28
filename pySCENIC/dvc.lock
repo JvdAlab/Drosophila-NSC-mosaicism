@@ -1,0 +1,131 @@
+---
+schema: '2.0'
+stages:
+  preprocess_data:
+    cmd: python pySCENIC/00_pyscenic_preprocess_data.py --config
+      pySCENIC/pyscenic_config.yaml
+    wdir: ..
+    deps:
+    - path: pySCENIC/data/pyscenic_input/scRNA_scVI_annotated_nb_subset.h5ad
+      hash: md5
+      md5: 4077cbda629657e545cf07b7a2b0fde3
+      size: 76302680
+    - path: pySCENIC/00_pyscenic_preprocess_data.py
+      hash: md5
+      md5: cec194b49e141f1e4ec8c229e18e7516
+      size: 6325
+    - path: pySCENIC/pyscenic_config.yaml
+      hash: md5
+      md5: 6ff189900f432881a3564171eda5ae01
+      size: 546
+    outs:
+    - path: results/pyscenic/preprocessed.h5ad
+      hash: md5
+      md5: 67cf7612a07a0750439fa2e2ec062e89
+      size: 74381768
+    - path: results/pyscenic/valid_tfs.txt
+      hash: md5
+      md5: 8e9194fa045a0ae5bed1c851a44c1841
+      size: 3099
+  grn_inference:
+    cmd: python pySCENIC/01_pyscenic_grn_construction.py --config
+      pySCENIC/pyscenic_config.yaml
+    wdir: ..
+    deps:
+    - path: pySCENIC/01_pyscenic_grn_construction.py
+      hash: md5
+      md5: 02ea4afd2e5269e3dea2b9808a9a028b
+      size: 5350
+    - path: pySCENIC/pyscenic_config.yaml
+      hash: md5
+      md5: 6ff189900f432881a3564171eda5ae01
+      size: 546
+    - path: results/pyscenic/preprocessed.h5ad
+      hash: md5
+      md5: 67cf7612a07a0750439fa2e2ec062e89
+      size: 74381768
+    - path: results/pyscenic/valid_tfs.txt
+      hash: md5
+      md5: 8e9194fa045a0ae5bed1c851a44c1841
+      size: 3099
+    params:
+      pySCENIC/pyscenic_config.yaml:
+        run.top_gene_percentile: 85
+    outs:
+    - path: results/pyscenic/adjacencies.csv
+      hash: md5
+      md5: d2371c8ba2e2691cf92bc5720a22db01
+      size: 97538877
+    - path: results/pyscenic/adjacencies.pkl
+      hash: md5
+      md5: db3b51fe5c92360d58ec45370cd80626
+      size: 91015717
+  ctx_pruning:
+    cmd: python pySCENIC/02_pyscenic_ctx_pruning.py --config
+      pySCENIC/pyscenic_config.yaml
+    wdir: ..
+    deps:
+    - path: pySCENIC/02_pyscenic_ctx_pruning.py
+      hash: md5
+      md5: 6ebdf9a965f9ebf73d6ba3043ecc069b
+      size: 6489
+    - path: pySCENIC/pyscenic_config.yaml
+      hash: md5
+      md5: 6ff189900f432881a3564171eda5ae01
+      size: 546
+    - path: results/pyscenic/adjacencies.pkl
+      hash: md5
+      md5: db3b51fe5c92360d58ec45370cd80626
+      size: 91015717
+    - path: results/pyscenic/preprocessed.h5ad
+      hash: md5
+      md5: 67cf7612a07a0750439fa2e2ec062e89
+      size: 74381768
+    params:
+      pySCENIC/pyscenic_config.yaml:
+        run.nes_threshold: 3.5
+        run.rank_threshold: 3000
+        shared_params.num_workers: 16
+    outs:
+    - path: results/pyscenic/ctx_pruning_results.csv
+      hash: md5
+      md5: 69c51f174247d3c4a43255e40804415c
+      size: 27311045
+    - path: results/pyscenic/ctx_pruning_results.pkl
+      hash: md5
+      md5: 3c0794141f47b90d28eceb8563b9c87c
+      size: 34037717
+    - path: results/pyscenic/final_regulons.csv
+      hash: md5
+      md5: e14e76ca3e988c4b09835ffffcec6489
+      size: 2528422
+  auc_scoring:
+    cmd: python pySCENIC/03_pyscenic_auc_scoring.py --config
+      pySCENIC/pyscenic_config.yaml
+    wdir: ..
+    deps:
+    - path: pySCENIC/03_pyscenic_auc_scoring.py
+      hash: md5
+      md5: 940b48c6e338847a4c83bfc7a4abafb6
+      size: 3065
+    - path: pySCENIC/pyscenic_config.yaml
+      hash: md5
+      md5: 6ff189900f432881a3564171eda5ae01
+      size: 546
+    - path: results/pyscenic/ctx_pruning_results.pkl
+      hash: md5
+      md5: 3c0794141f47b90d28eceb8563b9c87c
+      size: 34037717
+    - path: results/pyscenic/preprocessed.h5ad
+      hash: md5
+      md5: 67cf7612a07a0750439fa2e2ec062e89
+      size: 74381768
+    params:
+      pySCENIC/pyscenic_config.yaml:
+        shared_params.num_workers: 16
+        shared_params.seed: 42
+    outs:
+    - path: results/pyscenic/auc_matrix.csv
+      hash: md5
+      md5: 324f9f271ea6a51338e372f21fcdfac1
+      size: 6882647

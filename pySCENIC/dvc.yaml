@@ -1,0 +1,62 @@
+vars:
+  - pyscenic_config.yaml
+
+stages:
+  preprocess_data:
+    cmd: python pySCENIC/00_pyscenic_preprocess_data.py --config pySCENIC/pyscenic_config.yaml
+    wdir: ..
+    deps:
+      - pySCENIC/00_pyscenic_preprocess_data.py
+      - pySCENIC/pyscenic_config.yaml
+      - pySCENIC/data/pyscenic_input/scRNA_scVI_annotated_nb_subset.h5ad
+    outs:
+      - results/pyscenic/preprocessed.h5ad
+      - results/pyscenic/valid_tfs.txt
+
+  grn_inference:
+    cmd: python pySCENIC/01_pyscenic_grn_construction.py --config pySCENIC/pyscenic_config.yaml
+    wdir: ..
+    deps:
+      - pySCENIC/01_pyscenic_grn_construction.py
+      - pySCENIC/pyscenic_config.yaml
+      - results/pyscenic/preprocessed.h5ad
+      - results/pyscenic/valid_tfs.txt
+    params:
+      - pySCENIC/pyscenic_config.yaml:
+          - run.top_gene_percentile
+    outs:
+      - results/pyscenic/adjacencies.csv
+      - results/pyscenic/adjacencies.pkl
+
+  ctx_pruning:
+    cmd: python pySCENIC/02_pyscenic_ctx_pruning.py --config pySCENIC/pyscenic_config.yaml
+    wdir: ..
+    deps:
+      - pySCENIC/02_pyscenic_ctx_pruning.py
+      - pySCENIC/pyscenic_config.yaml
+      - results/pyscenic/adjacencies.pkl
+      - results/pyscenic/preprocessed.h5ad
+    params:
+      - pySCENIC/pyscenic_config.yaml:
+          - run.rank_threshold
+          - run.nes_threshold
+          - shared_params.num_workers
+    outs:
+      - results/pyscenic/ctx_pruning_results.csv
+      - results/pyscenic/ctx_pruning_results.pkl
+      - results/pyscenic/final_regulons.csv
+
+  auc_scoring:
+    cmd: python pySCENIC/03_pyscenic_auc_scoring.py --config pySCENIC/pyscenic_config.yaml
+    wdir: ..
+    deps:
+      - pySCENIC/03_pyscenic_auc_scoring.py
+      - pySCENIC/pyscenic_config.yaml
+      - results/pyscenic/ctx_pruning_results.pkl
+      - results/pyscenic/preprocessed.h5ad
+    params:
+      - pySCENIC/pyscenic_config.yaml:
+          - shared_params.seed
+          - shared_params.num_workers
+    outs:
+      - results/pyscenic/auc_matrix.csv

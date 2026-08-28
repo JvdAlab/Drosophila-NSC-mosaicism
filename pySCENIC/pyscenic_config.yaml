@@ -1,0 +1,20 @@
+paths:
+  work_dir: "pySCENIC/data/pyscenic_input"
+  res_dir: "pySCENIC/resources/pyscenic"
+  h5ad: "scRNA_scVI_annotated_nb_subset.h5ad"
+  tf_list: "flybase_dmel_TFs.txt"
+  ranking_db: "dm6_v10_clust.genes_vs_motifs.rankings.feather"
+  motif_annotations: "motifs-v10nr_clust-nr.flybase-m0.001-o0.0.tbl"
+  gene_map: "global_pyscenic_rescue_map.csv"
+
+shared_params:
+  num_workers: 16
+  seed: 42
+  motif_similarity_fdr: 0.001
+  auc_threshold: 0.01
+
+run:
+  output_dir: "results/pyscenic"
+  rank_threshold: 3000
+  nes_threshold: 3.5
+  top_gene_percentile: 85
