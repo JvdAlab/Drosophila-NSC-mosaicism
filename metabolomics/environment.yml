@@ -1,0 +1,28 @@
+name: metabolomics_pipeline
+
+# Two R scripts, no Python. Same R 4.4.3 / Bioconductor 3.20 stack as the
+# other R modules (edgeR/, hdWGCNA/, reports/). There is no committed
+# sessionInfo() for this module: r-base, r-tidyverse and r-here match the
+# sibling envs, and bioconductor-limma is pinned to the same point release
+# as edgeR/. readxl (used by 00_differential_abundance.R) ships with the
+# r-tidyverse metapackage.
+#
+# The manuscript Methods text cites limma 3.58.1 / fgsea 1.32.4. limma 3.58.1
+# belongs to Bioconductor 3.18 (R 4.3) and cannot coexist with this stack;
+# limma's lmFit/eBayes/topTable path is stable across that gap. fgsea 1.32.0
+# is the Bioconductor 3.20 release; relax the pin to 1.32.4 to match the text
+# exactly if required.
+#
+#   00_differential_abundance.R : r-base, bioconductor-limma, r-tidyverse (readxl), r-here
+#   01_pathway_enrichment.R     : r-base, bioconductor-fgsea, r-tidyverse, r-here
+
+channels:
+  - conda-forge
+  - bioconda
+
+dependencies:
+  - r-base=4.4.3
+  - r-tidyverse=2.0.0
+  - r-here=1.0.2
+  - bioconductor-limma=3.62.2
+  - bioconductor-fgsea=1.32.0
