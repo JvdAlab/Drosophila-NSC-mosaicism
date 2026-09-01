@@ -1,0 +1,204 @@
+manuscript_panel,measurement,unit,value,genotype_raw,mito_type,mtdna_background,replicate_id
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,6,TubFRT-UASMitoGFP Het,MitoGFP,Heteroplasmic,b01
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,7,TubFRT-UASMitoGFP Het,MitoGFP,Heteroplasmic,b02
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,6,TubFRT-UASMitoGFP Het,MitoGFP,Heteroplasmic,b03
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,5,TubFRT-UASMitoGFP Het,MitoGFP,Heteroplasmic,b04
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,7,TubFRT-UASMitoGFP Het,MitoGFP,Heteroplasmic,b05
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,6,TubFRT-UASMitoGFP Het,MitoGFP,Heteroplasmic,b06
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,5,TubFRT-UASMitoGFP Het,MitoGFP,Heteroplasmic,b07
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,6,TubFRT-UASMitoGFP Het,MitoGFP,Heteroplasmic,b08
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,6,TubFRT-UASMitoGFP Het,MitoGFP,Heteroplasmic,b09
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,7,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b10
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,7,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b10
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,7,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b10
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,6,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b10
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,7,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b10
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,5,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b10
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,7,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b10
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,7,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b10
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,6,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b11
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,5,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b11
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,9,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b11
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,5,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b11
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,8,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b11
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,6,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b11
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,5,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b11
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,5,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b11
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,7,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b12
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,7,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b12
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,6,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b12
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,6,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b12
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,4,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b12
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,8,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b12
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,9,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b12
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,8,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b12
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,8,TubFRT-UASMitoGFP Het,MitoGFP,Heteroplasmic,b13
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,9,TubFRT-UASMitoGFP Het,MitoGFP,Heteroplasmic,b13
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,11,TubFRT-UASMitoGFP Het,MitoGFP,Heteroplasmic,b13
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,8,TubFRT-UASMitoGFP Het,MitoGFP,Heteroplasmic,b13
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,9,TubFRT-UASMitoGFP Het,MitoGFP,Heteroplasmic,b13
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,11,TubFRT-UASMitoGFP Het,MitoGFP,Heteroplasmic,b14
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,10,TubFRT-UASMitoGFP Het,MitoGFP,Heteroplasmic,b14
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,14,TubFRT-UASMitoGFP Het,MitoGFP,Heteroplasmic,b14
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,8,TubFRT-UASMitoGFP Het,MitoGFP,Heteroplasmic,b14
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,10,TubFRT-UASMitoGFP Het,MitoGFP,Heteroplasmic,b15
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,9,TubFRT-UASMitoGFP Het,MitoGFP,Heteroplasmic,b15
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,9,TubFRT-UASMitoGFP Het,MitoGFP,Heteroplasmic,b15
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,8,TubFRT-UASMitoGFP Het,MitoGFP,Heteroplasmic,b15
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,14,TubFRT-UASMitoGFP Het,MitoGFP,Heteroplasmic,b15
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,9,TubFRT-UASMitoGFP Het,MitoGFP,Heteroplasmic,b15
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,12,TubFRT-UASMitoGFP Het,MitoGFP,Heteroplasmic,b16
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,8,TubFRT-UASMitoGFP Het,MitoGFP,Heteroplasmic,b16
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,10,TubFRT-UASMitoGFP Het,MitoGFP,Heteroplasmic,b16
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,8,TubFRT-UASMitoGFP Het,MitoGFP,Heteroplasmic,b16
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,11,TubFRT-UASMitoGFP Het,MitoGFP,Heteroplasmic,b16
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,12,TubFRT-UASMitoGFP Het,MitoGFP,Heteroplasmic,b17
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,11,TubFRT-UASMitoGFP Het,MitoGFP,Heteroplasmic,b17
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,9,TubFRT-UASMitoGFP Het,MitoGFP,Heteroplasmic,b17
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,8,TubFRT-UASMitoGFP Het,MitoGFP,Heteroplasmic,b17
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,6,TubFRT-UASMitoGFP Het,MitoGFP,Heteroplasmic,b18
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,8,TubFRT-UASMitoGFP Het,MitoGFP,Heteroplasmic,b18
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,10,TubFRT-UASMitoGFP Het,MitoGFP,Heteroplasmic,b18
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,5,TubFRT-UASMitoGFP Het,MitoGFP,Heteroplasmic,b18
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,12,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b19
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,6,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b19
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,11,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b19
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,9,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b19
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,11,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b20
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,6,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b20
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,8,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b20
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,10,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b21
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,10,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b21
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,12,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b21
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,9,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b21
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,10,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b22
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,10,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b22
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,12,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b22
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,10,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b22
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,9,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b23
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,9,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b23
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,7,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b23
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,8,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b23
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,9,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b23
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,5,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b23
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,10,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b23
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,9,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b24
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,8,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b24
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,8,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b24
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,9,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b24
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,8,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b24
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,9,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b24
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,8,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b25
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,10,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b25
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,9,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b25
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,9,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b25
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,8,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b25
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,8,TubFRT-UASMitoXho1 Het,MitoXho1,Heteroplasmic,b25
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,7,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b26
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,7,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b26
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,7,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b26
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,7,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b26
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,6,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b26
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,7,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b26
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,6,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b26
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,6,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b26
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,9,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b27
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,6,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b27
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,8,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b27
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,8,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b27
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,11,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b27
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,5,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b27
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,7,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b27
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,7,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b27
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,4,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b28
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,5,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b28
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,4,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b28
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,5,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b28
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,5,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b28
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,6,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b28
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,7,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b28
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,5,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b28
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,4,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b29
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,4,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b29
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,4,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b29
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,5,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b29
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,5,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b29
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,6,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b29
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,5,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b29
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,4,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b29
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,7,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b30
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,4,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b30
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,6,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b30
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,8,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b30
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,8,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b30
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,7,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b30
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,8,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b30
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,9,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b30
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,7,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b31
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,8,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b31
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,8,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b31
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,7,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b31
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,6,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b31
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,7,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b31
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,7,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b31
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,8,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b31
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,5,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b32
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,6,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b32
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,4,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b32
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,6,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b32
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,6,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b32
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,6,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b32
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,5,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b32
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,3,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b32
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,7,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b33
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,9,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b33
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,6,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b33
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,7,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b33
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,8,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b33
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,7,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b33
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,6,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b33
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,8,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b33
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,9,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b34
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,8,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b34
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,10,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b34
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,9,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b34
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,8,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b34
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,7,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b34
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,11,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b34
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,8,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b34
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,14,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b35
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,10,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b35
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,12,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b35
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,14,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b35
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,10,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b35
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,11,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b35
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,13,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b35
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,10,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b35
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,7,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b35
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,7,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b35
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,7,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b35
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,7,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b35
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,6,TubFRT-UASMitoGFP Homo,MitoGFP,Homoplasmic WT,b35
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,8,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b36
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,9,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b36
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,10,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b36
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,11,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b36
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,9,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b36
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,10,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b36
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,9,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b36
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,11,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b37
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,11,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b37
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,10,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b37
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,8,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b37
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,11,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b37
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,9,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b37
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,8,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b37
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,11,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b38
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,12,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b38
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,8,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b38
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,13,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b39
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,11,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b39
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,9,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b39
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,9,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b39
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,8,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b39
+Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,10,TubFRT-UASMitoXho1 Homo,MitoXho1,Homoplasmic WT,b39

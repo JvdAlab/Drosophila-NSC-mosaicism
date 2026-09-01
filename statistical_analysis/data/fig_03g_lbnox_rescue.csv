@@ -1,0 +1,96 @@
+manuscript_panel,measurement,unit,value,genotype_raw,rnai,rescue_transgene,dpn_positive,ph3_positive
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,27.86885246,mCherry RNAi,Control,None,122,34
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,28.24427481,mCherry RNAi,Control,None,131,37
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,24.46808511,mCherry RNAi,Control,None,94,23
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,30.075187970000002,mCherry RNAi,Control,None,133,40
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,28.03030303,mCherry RNAi,Control,None,132,37
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,24.3902439,mCherry RNAi,Control,None,123,30
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,33.58208955,mCherry RNAi,Control,None,134,45
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,28.67647059,mCherry RNAi,Control,None,136,39
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,23.84615385,mCherry RNAi,Control,None,130,31
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,22.37762238,mCherry RNAi,Control,None,143,32
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,18.65671642,mCherry RNAi,Control,None,134,25
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,24.40944882,mCherry RNAi,Control,None,127,31
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,15,ND75 RNAi,Complex I,None,140,21
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,16.15385,ND75 RNAi,Complex I,None,130,21
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,11.62791,ND75 RNAi,Complex I,None,129,15
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,16.25,ND75 RNAi,Complex I,None,160,26
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,17.164180000000002,ND75 RNAi,Complex I,None,134,23
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,10.12658,ND75 RNAi,Complex I,None,158,16
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,13.04348,ND75 RNAi,Complex I,None,138,18
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,15,ND75 RNAi,Complex I,None,120,18
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,16.4473684,ND75 RNAi,Complex I,None,152,25
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,15.7894737,ND75 RNAi,Complex I,None,133,21
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,13.740458,ND75 RNAi,Complex I,None,131,18
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,15.3284672,ND75 RNAi,Complex I,None,137,21
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,16.7832168,ND75 RNAi,Complex I,None,143,24
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,15.7024793,ND75 RNAi,Complex I,None,121,19
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,17.82946,ATP SynO RNAi,Complex V,None,129,23
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,18.75,ATP SynO RNAi,Complex V,None,128,24
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,22.05882,ATP SynO RNAi,Complex V,None,136,30
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,19.85294,ATP SynO RNAi,Complex V,None,136,27
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,17.69231,ATP SynO RNAi,Complex V,None,130,23
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,19.40299,ATP SynO RNAi,Complex V,None,134,26
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,18.49315068,ATP SynO RNAi,Complex V,None,146,27
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,18.03278689,ATP SynO RNAi,Complex V,None,122,22
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,16.78832117,ATP SynO RNAi,Complex V,None,137,23
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,14.39393939,ATP SynO RNAi,Complex V,None,132,19
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,17.03703704,ATP SynO RNAi,Complex V,None,135,23
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,35.15625,ATP SynO RNAi,Complex V,None,128,45
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,22.4137931,mitoLbNox;mCherry RNAi,Control,mitoLbNox,116,26
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,18.4,mitoLbNox;mCherry RNAi,Control,mitoLbNox,125,23
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,19.42446043,mitoLbNox;mCherry RNAi,Control,mitoLbNox,139,27
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,30.64516129,mitoLbNox;mCherry RNAi,Control,mitoLbNox,124,38
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,21.89781022,mitoLbNox;mCherry RNAi,Control,mitoLbNox,137,30
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,20.30075188,mitoLbNox;mCherry RNAi,Control,mitoLbNox,133,27
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,17.03703704,mitoLbNox;mCherry RNAi,Control,mitoLbNox,135,23
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,26.61870504,mitoLbNox;mCherry RNAi,Control,mitoLbNox,139,37
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,19.85294118,mitoLbNox;mCherry RNAi,Control,mitoLbNox,136,27
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,16.66666667,mitoLbNox;mCherry RNAi,Control,mitoLbNox,120,20
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,25,mitoLbNox;mCherry RNAi,Control,mitoLbNox,140,35
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,21.77419,mitoLbNox;ND75 RNAi,Complex I,mitoLbNox,124,27
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,14.49275,mitoLbNox;ND75 RNAi,Complex I,mitoLbNox,138,20
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,17.7305,mitoLbNox;ND75 RNAi,Complex I,mitoLbNox,141,25
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,18.04511,mitoLbNox;ND75 RNAi,Complex I,mitoLbNox,133,24
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,21.0084,mitoLbNox;ND75 RNAi,Complex I,mitoLbNox,119,25
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,18.43972,mitoLbNox;ND75 RNAi,Complex I,mitoLbNox,141,26
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,18.30985915,mitoLbNox;ND75 RNAi,Complex I,mitoLbNox,142,26
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,29.33333333,mitoLbNox;ND75 RNAi,Complex I,mitoLbNox,150,44
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,16.79389313,mitoLbNox;ND75 RNAi,Complex I,mitoLbNox,131,22
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,21.73913043,mitoLbNox;ND75 RNAi,Complex I,mitoLbNox,138,30
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,21.05263158,mitoLbNox;ND75 RNAi,Complex I,mitoLbNox,133,28
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,21.96969697,mitoLbNox;ND75 RNAi,Complex I,mitoLbNox,132,29
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,20,mitoLbNox;ND75 RNAi,Complex I,mitoLbNox,130,26
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,17.51825,mitoLbNox; ATP SynO RNAi,Complex V,mitoLbNox,137,24
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,15.26718,mitoLbNox; ATP SynO RNAi,Complex V,mitoLbNox,131,20
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,17.27273,mitoLbNox; ATP SynO RNAi,Complex V,mitoLbNox,110,19
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,14.68531,mitoLbNox; ATP SynO RNAi,Complex V,mitoLbNox,143,21
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,17.94872,mitoLbNox; ATP SynO RNAi,Complex V,mitoLbNox,117,21
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,17.7305,mitoLbNox; ATP SynO RNAi,Complex V,mitoLbNox,141,25
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,19.04761905,mitoLbNox; ATP SynO RNAi,Complex V,mitoLbNox,126,24
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,20.76923077,mitoLbNox; ATP SynO RNAi,Complex V,mitoLbNox,130,27
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,19.68503937,mitoLbNox; ATP SynO RNAi,Complex V,mitoLbNox,127,25
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,26.76056338,mitoLbNox; ATP SynO RNAi,Complex V,mitoLbNox,142,38
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,20,mitoLbNox; ATP SynO RNAi,Complex V,mitoLbNox,145,29
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,23.94366197,mitoLbNox; ATP SynO RNAi,Complex V,mitoLbNox,142,34
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,18.96551724,nlsLbNox;mCherry RNAi,Control,nlsLbNox,116,22
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,22.80701754,nlsLbNox;mCherry RNAi,Control,nlsLbNox,114,26
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,18.03278689,nlsLbNox;mCherry RNAi,Control,nlsLbNox,122,22
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,20.96774194,nlsLbNox;mCherry RNAi,Control,nlsLbNox,124,26
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,25.17985612,nlsLbNox;mCherry RNAi,Control,nlsLbNox,139,35
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,31.49606299,nlsLbNox;mCherry RNAi,Control,nlsLbNox,127,40
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,15.625,nlsLbNox;mCherry RNAi,Control,nlsLbNox,128,20
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,18.60465116,nlsLbNox;mCherry RNAi,Control,nlsLbNox,129,24
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,17.6,nlsLbNox; ND75 RNAi,Complex I,nlsLbNox,125,22
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,22.22222222,nlsLbNox; ND75 RNAi,Complex I,nlsLbNox,126,28
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,22.58064516,nlsLbNox; ND75 RNAi,Complex I,nlsLbNox,124,28
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,16.66666667,nlsLbNox; ND75 RNAi,Complex I,nlsLbNox,126,21
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,20.4379562,nlsLbNox; ND75 RNAi,Complex I,nlsLbNox,137,28
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,22.06896552,nlsLbNox; ND75 RNAi,Complex I,nlsLbNox,145,32
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,22.79411765,nlsLbNox; ND75 RNAi,Complex I,nlsLbNox,136,31
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,27.00729927,nlsLbNox; ND75 RNAi,Complex I,nlsLbNox,137,37
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,22.90076336,nlsLbNox; ATP SynO RNAi,Complex V,nlsLbNox,131,30
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,21.56862745,nlsLbNox; ATP SynO RNAi,Complex V,nlsLbNox,102,22
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,17.46031746,nlsLbNox; ATP SynO RNAi,Complex V,nlsLbNox,126,22
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,14.07407407,nlsLbNox; ATP SynO RNAi,Complex V,nlsLbNox,135,19
+Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,23.2,nlsLbNox; ATP SynO RNAi,Complex V,nlsLbNox,125,29

@@ -37,6 +37,7 @@ Complex I / *ND-42* RNAi in NSCs against control.
 | Co-expression networks | Neuroblast hdWGCNA co-expression network construction | — | [hdWGCNA/](hdWGCNA/) |
 | Gene regulatory networks | pySCENIC GRN inference, motif pruning, regulon AUC scoring (DVC pipeline) | — | [pySCENIC/](pySCENIC/) |
 | Metabolomics | Larval-brain differential abundance (limma) and metabolite-set enrichment (fgsea) | — | [metabolomics/](metabolomics/) |
+| Statistical analysis | Clone/brain/cell-level mixed-model statistics for the confocal/genetics figure panels (lme4/lmerTest, Type III ANOVA, emmeans, DHARMa) | [statistical_analysis.html](statistical_analysis/statistical_analysis.html) | [statistical_analysis/](statistical_analysis/) |
 | Figure reports | Quarto reports assembling network, SCENIC, GO, and metabolomics figure panels | [reports/](reports/) | [reports/](reports/) |
 | Image analysis | ImageJ/Fiji panorama-analysis Java component | — | [Deadpanorama/](Deadpanorama/) |
 
@@ -51,10 +52,10 @@ Drosophila-NSC-mosaicism/
 ├── hdWGCNA/                 # Co-expression network construction
 ├── pySCENIC/                # GRN inference (DVC pipeline)
 ├── metabolomics/            # Differential abundance (limma) + enrichment (fgsea)
+├── statistical_analysis/    # Mixed-model statistics for the confocal/genetics panels
 ├── reports/                 # Quarto figure-panel reports
 ├── Deadpanorama/            # ImageJ/Fiji Java component
-├── results/                 # Derived outputs
-└── analysis_provenance/     # Git provenance notes (local only)
+└── results/                 # Derived outputs
 ```
 
 See each module's `README.md` for full parameters, dependencies, and usage.
@@ -65,8 +66,8 @@ See each module's `README.md` for full parameters, dependencies, and usage.
 
 Each module carries its own conda `environment.yml` and builds a
 self-named environment. Create the ones you need, or run
-[`./setup_envs.sh`](setup_envs.sh) from the repository root to build all
-five. All scripts
+[`./setup_envs.sh`](setup_envs.sh) from the repository root to build them
+all. All scripts
 expect the repository root as the working directory; the pySCENIC
 pipeline is driven by DVC (`dvc repro`) and targets a Python/GPU or HPC
 environment.
@@ -76,6 +77,8 @@ environment.
 | [`scRNA_pipeline/`](scRNA_pipeline/) | `scRNA_pipeline` |
 | [`edgeR/`](edgeR/) | `edgeR_pipeline` |
 | [`hdWGCNA/`](hdWGCNA/) | `hdWGCNA_pipeline` |
+| [`metabolomics/`](metabolomics/) | `metabolomics_pipeline` |
+| [`statistical_analysis/`](statistical_analysis/) | `statistical_analysis` |
 | [`reports/`](reports/) | `reports_pipeline` |
 | [`pySCENIC/`](pySCENIC/) | `pyscenic_pipeline` |
 
@@ -91,20 +94,22 @@ conda activate <conda env name>
 ## Data Availability
 
 Large inputs, reference databases, and generated results are external
-artifacts, deposited or archived separately.
+artifacts, deposited or archived separately. The metabolomics input table is
+the exception — it is small and committed under
+[`metabolomics/data/raw/`](metabolomics/data/raw/).
 
 | Dataset | Repository | Accession |
 |:--------|:-----------|:----------|
 | scRNA-seq (10x, larval CNS neuroblast niche) | GEO | pending |
-| Larval-brain untargeted metabolomics | Metabolomics Workbench / MetaboLights | pending |
+| Larval-brain untargeted metabolomics | Metabolomics Workbench / MetaboLights | normalized abundance table committed in repo; raw spectra pending |
 | SCENIC input AnnData and reference resources | Zenodo / archive | pending (SHA256 checksums in module READMEs) |
 
 Per-artifact documentation:
 
-- [pySCENIC input AnnData](pySCENIC/data/scenic_input/README.md): Annotated Neuroblast subset
-- [pySCENIC reference resources](pySCENIC/resources/scenic/README.md): Motif databases, TF list
+- [pySCENIC input AnnData](pySCENIC/data/pyscenic_input/README.md): Annotated Neuroblast subset
+- [pySCENIC reference resources](pySCENIC/resources/pyscenic/README.md): Motif databases, TF list
 - [scRNA-seq raw inputs](scRNA_pipeline/data/raw/README.md): Per-sample Cell Ranger matrices and samplesheet
-- [Metabolomics input](metabolomics/data/raw/README.md): Untargeted LC-MS on whole larval CNS
+- [Metabolomics input](metabolomics/data/raw/README.md): normalized abundance table, committed under `metabolomics/data/raw/`
 
 ---
 

@@ -1,0 +1,3403 @@
+---
+title: "Statistical analysis for Drosophila NSC mosaicism manuscript"
+author: "Abhilesh Dhawanjewar"
+date: "`r format(Sys.time(), '%Y-%m-%d')`"
+format:
+    html:
+        code-fold: true
+        embed-resources: true
+        page-layout: full
+        toc: true
+        toc-depth: 3
+        toc-title: "Contents"
+        theme: cosmo
+execute:
+    echo: true
+    output: false
+    warning: false
+---
+
+```{css, echo=FALSE}
+p code, li code, td code {
+    color: #3a3a3a;
+}
+
+.table tbody tr > td,
+.table tbody tr > th {
+    --bs-table-accent-bg: transparent;
+    --bs-table-striped-bg: transparent;
+    --bs-table-bg: transparent;
+}
+
+.table {
+    --bs-table-border-color: #adb5bd;
+    border-top-color: #adb5bd;
+    border-bottom-color: #adb5bd;
+}
+
+.table-striped > tbody > tr:nth-of-type(odd) > td,
+.table-striped > tbody > tr:nth-of-type(odd) > th {
+    background-color: transparent !important;
+}
+```
+
+```{r}
+#| label: setup
+#| code-summary: "Load libraries and data"
+
+library(here)
+library(tidyverse)
+library(conflicted)
+library(lme4)
+library(lmerTest)
+library(DHARMa)
+library(emmeans)
+library(kableExtra)
+# car, nlme, reactable, htmltools are called via :: only (no attach, no conflicts)
+
+conflicts_prefer(
+    dplyr::filter, dplyr::select, dplyr::rename, dplyr::lag,
+    lmerTest::lmer, .quiet = TRUE
+)
+
+# Reproducibility: a fixed global seed plus deterministic Monte-Carlo quantiles
+# for emmeans multivariate-t contrasts (otherwise the p-values vary).
+GLOBAL_SEED <- 42L
+DHARMA_SEED <- 42L
+set.seed(GLOBAL_SEED)
+emmeans::emm_options(rng.seed = GLOBAL_SEED)
+
+stat_data_dir    <- here("statistical_analysis", "data")
+stat_results_dir <- here("results", "statistical_analysis")
+if (!dir.exists(stat_data_dir)) {
+    stop("Analysis data not found at ", stat_data_dir)
+}
+dir.create(stat_results_dir, recursive = TRUE, showWarnings = FALSE)
+
+# Read one per-analysis data table (one row per clone / brain / cell).
+read_stat <- function(name) {
+    readr::read_csv(file.path(stat_data_dir, name), show_col_types = FALSE)
+}
+
+# Write one result table to results/statistical_analysis/.
+write_result <- function(x, name) {
+    df <- as.data.frame(x)
+    rn <- rownames(df)
+    if (!is.null(rn) && !identical(rn, as.character(seq_len(nrow(df))))) {
+        df <- tibble::rownames_to_column(df, "term")
+    }
+    readr::write_csv(df, file.path(stat_results_dir, name))
+    invisible(df)
+}
+
+minimal_tbl <- function(df) {
+    df %>%
+        kbl(align = "c") %>%
+        kable_styling(
+            bootstrap_options = c("condensed", "bordered"),
+            full_width        = FALSE,
+            position          = "left"
+        )
+}
+
+fmt_p <- function(p, digits = 2) {
+    if (is.na(p)) return("NA")
+    if (p < 0.001) {
+        sci   <- formatC(p, format = "e", digits = digits - 1)
+        parts <- strsplit(sci, "e")[[1]]
+        exp   <- as.integer(parts[2])
+        return(paste0(trimws(parts[1]), " \\times 10^{", exp, "}"))
+    }
+    as.character(signif(p, max(digits, 2)))
+}
+
+sig_stars <- function(p, na_as = "") {
+    case_when(
+        is.na(p)  ~ na_as,
+        p < 0.001 ~ "***",
+        p < 0.01  ~ "**",
+        p < 0.05  ~ "*",
+        TRUE      ~ "ns"
+    )
+}
+
+sig_tbl <- function(df) {
+    sig_col <- intersect(c("sig", "sig_label"), names(df))[1]
+    if (is.na(sig_col)) return(minimal_tbl(df))
+
+    sig_vals <- df[[sig_col]]
+    rows_3 <- which(sig_vals == "***")
+    rows_2 <- which(sig_vals == "**")
+    rows_1 <- which(sig_vals == "*")
+
+    df[[sig_col]] <- dplyr::case_when(
+        sig_vals == "***" ~ kableExtra::cell_spec(sig_vals, bold = TRUE, color = "#1a7b1a"),
+        sig_vals == "**"  ~ kableExtra::cell_spec(sig_vals, bold = TRUE, color = "#2d8a2d"),
+        sig_vals == "*"   ~ kableExtra::cell_spec(sig_vals, bold = TRUE, color = "#5aaa5a"),
+        sig_vals == "ns"  ~ kableExtra::cell_spec(sig_vals, color = "#999999"),
+        TRUE ~ sig_vals
+    )
+
+    tbl <- df %>%
+        kbl(align = "c", escape = FALSE) %>%
+        kable_styling(
+            bootstrap_options = c("condensed", "bordered"),
+            full_width        = FALSE,
+            position          = "left"
+        )
+
+    if (length(rows_3) > 0) tbl <- tbl %>% row_spec(rows_3, background = "#c8e6c9")
+    if (length(rows_2) > 0) tbl <- tbl %>% row_spec(rows_2, background = "#def0de")
+    if (length(rows_1) > 0) tbl <- tbl %>% row_spec(rows_1, background = "#f0faf0")
+
+    tbl
+}
+```
+
+---
+
+## Fig 1B: NSC lineage size
+
+NSC lineage size (progeny per NSC clone) is compared across Control,
+Complex I, and Complex V RNAi, one clone per row. Two mosaic systems affect
+different fractions of NSCs and are analysed as separate models:
+
+- **Most NSCs affected:** `worniu-GAL4, Tub-FRT-Stop-FRT-GFP`
+- **Few NSCs affected:** `Actin-FRT-Stop-FRT-GAL4, UAS-mCD8-GFP`
+
+Brains are the biological replicate and enter each panel's model as a random
+intercept:
+
+`lineage_size ~ rnai + (1 | brain_uid)`
+
+Complex I and Complex V RNAi are each compared to the panel-matched Control RNAi,
+with a multivariate-$t$ adjustment across the two comparisons within a panel.
+
+```{r}
+#| label: fig1b-load-data
+#| code-summary: "Load Fig 1B lineage-size data and tabulate clones and brains per group"
+#| output: true
+
+fig1b_df <- read_stat("fig_01b_lineage_size.csv") %>%
+    filter(!is.na(value)) %>%
+    transmute(
+        lineage_size = value,
+        genotype     = genotype_raw,
+        panel = factor(
+            if_else(panel_side == "left", "Most NSCs affected", "Few NSCs affected"),
+            levels = c("Most NSCs affected", "Few NSCs affected")
+        ),
+        rnai      = factor(rnai, levels = c("Control", "Complex I", "Complex V")),
+        brain_uid = factor(replicate_id)
+    )
+
+fig1b_df %>%
+    group_by(panel, rnai) %>%
+    summarise(
+        n_clones = n(),
+        n_brains = n_distinct(brain_uid),
+        .groups  = "drop"
+    ) %>%
+    minimal_tbl()
+```
+
+### Diagnostics
+
+```{r}
+#| label: fig1b-lme-fit
+#| code-summary: "Fit panel-specific linear mixed-effects models"
+
+fig1b_most_df <- fig1b_df %>% filter(panel == "Most NSCs affected")
+fig1b_few_df  <- fig1b_df %>% filter(panel == "Few NSCs affected")
+
+fig1b_most_model <- lmerTest::lmer(
+    lineage_size ~ rnai + (1 | brain_uid),
+    data = fig1b_most_df,
+    REML = TRUE
+)
+
+fig1b_few_model <- lmerTest::lmer(
+    lineage_size ~ rnai + (1 | brain_uid),
+    data = fig1b_few_df,
+    REML = TRUE
+)
+
+summary(fig1b_most_model)
+summary(fig1b_few_model)
+```
+
+::: {.callout-note appearance="simple" collapse="true"}
+## Model fit diagnostics with DHARMa
+
+Scaled residuals from 1,000 simulations are tested for uniform distribution
+(Kolmogorov–Smirnov), dispersion, and an excess of outliers; all three should be
+non-significant for a well-fitting model.
+
+```{r}
+#| label: fig1b-dharma
+#| code-summary: "Run DHARMa diagnostics"
+#| output: true
+#| fig-width: 8
+#| fig-height: 5
+
+sim_fig1b_most <- DHARMa::simulateResiduals(fig1b_most_model, n = 1000, seed = DHARMA_SEED)
+sim_fig1b_few  <- DHARMa::simulateResiduals(fig1b_few_model,  n = 1000, seed = DHARMA_SEED)
+
+plot(sim_fig1b_most)
+plot(sim_fig1b_few)
+
+invisible(capture.output(
+    fig1b_dharma_tests <- list(
+        most_uniformity     = DHARMa::testUniformity(sim_fig1b_most, plot = FALSE),
+        most_dispersion     = DHARMa::testDispersion(sim_fig1b_most, plot = FALSE),
+        most_outliers = DHARMa::testOutliers(sim_fig1b_most, plot = FALSE),
+        few_uniformity      = DHARMa::testUniformity(sim_fig1b_few,  plot = FALSE),
+        few_dispersion      = DHARMa::testDispersion(sim_fig1b_few,  plot = FALSE),
+        few_outliers  = DHARMa::testOutliers(sim_fig1b_few,  plot = FALSE)
+    )
+))
+
+fig1b_dharma_tests %>%
+    purrr::map_dfr(
+        \(t) tibble(statistic = t$statistic, p.value = t$p.value),
+        .id = "test"
+    ) %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3)), sig = sig_stars(p.value)) %>%
+    minimal_tbl()
+```
+
+:::
+
+### Global F-test
+
+Type III ANOVA F-test of the `rnai` term, shown separately for each panel.
+
+```{r}
+#| label: fig1b-anova
+#| code-summary: "Type III ANOVA"
+#| output: true
+
+bind_rows(
+    anova(fig1b_most_model, type = "III", ddf = "Satterthwaite") %>%
+        as.data.frame() %>%
+        tibble::rownames_to_column("term") %>%
+        mutate(panel = "Most NSCs affected"),
+    anova(fig1b_few_model,  type = "III", ddf = "Satterthwaite") %>%
+        as.data.frame() %>%
+        tibble::rownames_to_column("term") %>%
+        mutate(panel = "Few NSCs affected")
+) %>%
+    rename(df_num = NumDF, df_den = DenDF, F = `F value`, p.value = `Pr(>F)`) %>%
+    select(panel, term, everything()) %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3)), sig = sig_stars(p.value)) %>%
+    sig_tbl()
+```
+
+### Complex I and Complex V RNAi vs. Control RNAi, per panel (multivariate-$t$ adjusted)
+
+Estimates are in progeny per NSC lineage. Each RNAi condition is compared to
+the panel-matched Control RNAi group.
+
+```{r}
+#| label: fig1b-contrasts
+#| code-summary: "Complex I and Complex V vs. Control contrasts, per panel (multivariate-$t$ adjusted)"
+
+fig1b_most_em <- emmeans::emmeans(fig1b_most_model, specs = ~ rnai)
+fig1b_few_em  <- emmeans::emmeans(fig1b_few_model,  specs = ~ rnai)
+
+fig1b_most_contrasts <- summary(
+    emmeans::contrast(
+        fig1b_most_em,
+        method = "trt.vs.ctrl",
+        ref    = "Control",
+        adjust = "mvt"
+    ),
+    infer = c(TRUE, TRUE)
+) %>%
+    as_tibble() %>%
+    mutate(panel = "Most NSCs affected")
+
+fig1b_few_contrasts <- summary(
+    emmeans::contrast(
+        fig1b_few_em,
+        method = "trt.vs.ctrl",
+        ref    = "Control",
+        adjust = "mvt"
+    ),
+    infer = c(TRUE, TRUE)
+) %>%
+    as_tibble() %>%
+    mutate(panel = "Few NSCs affected")
+
+fig1b_contrast_results <- bind_rows(
+    fig1b_most_contrasts,
+    fig1b_few_contrasts
+) %>%
+    select(panel, everything()) %>%
+    mutate(sig = sig_stars(p.value))
+```
+
+```{r}
+#| label: fig1b-contrast-table
+#| output: true
+#| echo: false
+
+fig1b_contrast_results %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3))) %>%
+    sig_tbl()
+```
+
+---
+
+## Fig 1G: NSC proliferation vs. in situ heteroplasmy
+
+EdU-positive progeny count is regressed on *in situ* heteroplasmy
+(% mutant mtDNA, from *D. melanogaster* / *D. yakuba* mtDNA smFISH), one
+neuroblast per row, across four brains (B1–B4) with brain included as a fixed effect:
+
+`progeny ~ heteroplasmy + brain`
+
+```{r}
+#| label: fig1g-load-data
+#| code-summary: "Load Fig 1G heteroplasmy/EdU data and summarise per brain"
+#| output: true
+
+# In situ heteroplasmy is the D. melanogaster / (D. melanogaster + D. yakuba)
+# mtDNA smFISH fraction; one row per scored neuroblast, four brains (B1-B4).
+fig1g_df <- read_stat("fig_01g_heteroplasmy.csv") %>%
+    transmute(
+        progeny      = value,
+        het_pct      = heteroplasmy_pct,
+        het_fraction = heteroplasmy_fraction,
+        d_mel, d_yak,
+        brain = factor(brain_label, levels = c("B1", "B2", "B3", "B4"))
+    )
+
+stopifnot(nrow(fig1g_df) == 53L)
+
+fig1g_df %>%
+    group_by(brain) %>%
+    summarise(
+        n_neuroblasts = n(),
+        het_range     = paste0(round(min(het_pct)), "-", round(max(het_pct)), "%"),
+        mean_progeny  = round(mean(progeny), 2),
+        .groups       = "drop"
+    ) %>%
+    minimal_tbl()
+```
+
+### Diagnostics
+
+```{r}
+#| label: fig1g-lm
+#| code-summary: "Fit linear model with brain as a fixed effect"
+
+fig1g_lm <- lm(progeny ~ het_pct + brain, data = fig1g_df)
+summary(fig1g_lm)
+```
+
+::: {.callout-note appearance="simple" collapse="true"}
+## Model fit diagnostics with DHARMa
+
+Scaled residuals from 1,000 simulations are tested for uniform distribution (Kolmogorov–Smirnov), dispersion, and an excess of outliers; all three should be non-significant for a well-fitting model.
+
+```{r}
+#| label: fig1g-dharma
+#| code-summary: "Run DHARMa diagnostics"
+#| output: true
+#| fig-width: 8
+#| fig-height: 5
+
+sim_fig1g <- DHARMa::simulateResiduals(fig1g_lm, n = 1000, seed = DHARMA_SEED)
+plot(sim_fig1g)
+
+invisible(capture.output(
+    fig1g_dharma_tests <- list(
+        uniformity     = DHARMa::testUniformity(sim_fig1g, plot = FALSE),
+        dispersion     = DHARMa::testDispersion(sim_fig1g, plot = FALSE),
+        outliers = DHARMa::testOutliers(sim_fig1g, plot = FALSE)
+    )
+))
+
+fig1g_dharma_tests %>%
+    purrr::map_dfr(
+        \(t) tibble(statistic = t$statistic, p.value = t$p.value),
+        .id = "test"
+    ) %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3)), sig = sig_stars(p.value)) %>%
+    minimal_tbl()
+```
+
+:::
+
+### Global F-test
+
+Type III ANOVA on `progeny ~ heteroplasmy + brain`; the `heteroplasmy` term tests whether *in situ* heteroplasmy predicts progeny count once brain is held fixed.
+
+```{r}
+#| label: fig1g-anova
+#| code-summary: "Type III ANOVA"
+#| output: true
+
+fig1g_anova <- car::Anova(fig1g_lm, type = "III") %>%
+    as.data.frame() %>%
+    tibble::rownames_to_column("term") %>%
+    rename(df = Df, F = `F value`, p.value = `Pr(>F)`)
+
+fig1g_anova %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3)), sig = sig_stars(p.value)) %>%
+    sig_tbl()
+```
+
+```{r}
+#| label: fig1g-anova-stats
+#| echo: false
+#| output: false
+fig1g_het_row   <- fig1g_anova %>% filter(term == "het_pct")
+fig1g_het_f     <- signif(fig1g_het_row$F, 3)
+fig1g_het_df    <- fig1g_het_row$df
+fig1g_het_dfres <- fig1g_lm$df.residual
+fig1g_het_p     <- fmt_p(fig1g_het_row$p.value)
+```
+
+Heteroplasmy has no significant effect on progeny count once brain is accounted for ($F(`r fig1g_het_df`, `r fig1g_het_dfres`) = `r fig1g_het_f`$, $p = `r fig1g_het_p`$).
+
+---
+
+## Fig 1P: Mito-XhoI in heteroplasmic and homoplasmic NSC clones
+
+EdU-positive progeny per NSC clone is compared in a 2 × 2 factorial
+of mitochondrially targeted transgene (`MitoGFP` control vs. `MitoXho1`) ×
+mtDNA background (`Homoplasmic WT` vs. `Heteroplasmic`), one clone per row, with
+brain as the biological replicate.
+
+The data are fit with a linear mixed-effects model:
+
+`EdU ~ mito_type * background + (1 | brain_uid)`
+
+Sum-to-zero contrasts are applied to both factors so that each Type III main
+effect is marginal to the interaction. `MitoXho1` is then compared to `MitoGFP`
+within each mtDNA background, with a multivariate-$t$ adjustment across the two
+comparisons.
+
+```{r}
+#| label: fig1p-load-data
+#| code-summary: "Load Fig 1P heteroplasmic-clone data and tabulate clones and brains per group"
+#| output: true
+
+fig1p_df <- read_stat("fig_01p_heteroplasmic_clones.csv") %>%
+    filter(!is.na(value)) %>%
+    transmute(
+        EdU        = value,
+        mito_type  = factor(mito_type,        levels = c("MitoGFP", "MitoXho1")),
+        background = factor(mtdna_background,  levels = c("Homoplasmic WT", "Heteroplasmic")),
+        brain_uid  = factor(replicate_id)
+    )
+
+stopifnot(!anyNA(fig1p_df$mito_type), !anyNA(fig1p_df$background))
+
+fig1p_df %>%
+    group_by(mito_type, background) %>%
+    summarise(
+        n_clones = n(),
+        n_brains = n_distinct(brain_uid),
+        .groups  = "drop"
+    ) %>%
+    minimal_tbl()
+```
+
+### Diagnostics
+
+```{r}
+#| label: fig1p-lme
+#| code-summary: "Fit clone-level linear mixed-effects model"
+
+contrasts(fig1p_df$mito_type)  <- contr.sum(2)
+contrasts(fig1p_df$background) <- contr.sum(2)
+
+fig1p_lme <- lmerTest::lmer(
+    EdU ~ mito_type * background + (1 | brain_uid),
+    data = fig1p_df,
+    REML = TRUE
+)
+summary(fig1p_lme)
+```
+
+::: {.callout-note appearance="simple" collapse="true"}
+## Model fit diagnostics with DHARMa
+
+Scaled residuals from 1,000 simulations are tested for uniform distribution (Kolmogorov–Smirnov), dispersion, and an excess of outliers; all three should be non-significant for a well-fitting model.
+
+```{r}
+#| label: fig1p-dharma
+#| code-summary: "Run DHARMa diagnostics"
+#| output: true
+#| fig-width: 8
+#| fig-height: 5
+
+sim_fig1p <- DHARMa::simulateResiduals(fig1p_lme, n = 1000, seed = DHARMA_SEED)
+plot(sim_fig1p)
+
+invisible(capture.output(
+    fig1p_dharma_tests <- list(
+        uniformity     = DHARMa::testUniformity(sim_fig1p, plot = FALSE),
+        dispersion     = DHARMa::testDispersion(sim_fig1p, plot = FALSE),
+        outliers = DHARMa::testOutliers(sim_fig1p, plot = FALSE)
+    )
+))
+
+fig1p_dharma_tests %>%
+    purrr::map_dfr(
+        \(t) tibble(statistic = t$statistic, p.value = t$p.value),
+        .id = "test"
+    ) %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3)), sig = sig_stars(p.value)) %>%
+    minimal_tbl()
+```
+
+The uniformity (KS) test is borderline
+($p = `r signif(fig1p_dharma_tests$uniformity$p.value, 2)`$) but not significant,
+and the dispersion and outlier tests are not flagged, so the Gaussian
+linear mixed-effects model is retained.
+
+:::
+
+### Global F-test
+
+Type III ANOVA (Satterthwaite degrees of freedom) on the two main effects and their interaction.
+
+```{r}
+#| label: fig1p-anova
+#| code-summary: "Type III ANOVA"
+#| output: true
+
+fig1p_anova <- anova(fig1p_lme, type = "III", ddf = "Satterthwaite") %>%
+    as.data.frame()
+
+fig1p_anova %>%
+    tibble::rownames_to_column("term") %>%
+    rename(df_num = NumDF, df_den = DenDF, F = `F value`, p.value = `Pr(>F)`) %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3)), sig = sig_stars(p.value)) %>%
+    sig_tbl()
+```
+
+```{r}
+#| label: fig1p-anova-stats
+#| echo: false
+#| output: false
+fig1p_bg_f    <- signif(fig1p_anova["background", "F value"], 3)
+fig1p_bg_dfd  <- signif(fig1p_anova["background", "DenDF"], 3)
+fig1p_bg_p    <- fmt_p(fig1p_anova["background", "Pr(>F)"])
+fig1p_mito_p  <- fmt_p(fig1p_anova["mito_type", "Pr(>F)"])
+fig1p_int_p   <- fmt_p(fig1p_anova["mito_type:background", "Pr(>F)"])
+```
+
+None of the three terms reach significance: `background` ($F(1, `r fig1p_bg_dfd`) = `r fig1p_bg_f`$, $p = `r fig1p_bg_p`$), `mito_type` ($p = `r fig1p_mito_p`$), and their interaction ($p = `r fig1p_int_p`$).
+
+### MitoXho1 vs. MitoGFP, within each mtDNA background (multivariate-$t$ adjusted)
+
+The two within-background comparisons are taken from the full
+`mito_type * background` estimated-marginal-means grid, with a multivariate-$t$
+adjustment applied jointly across both.
+
+```{r}
+#| label: fig1p-contrasts
+#| code-summary: "MitoXho1 vs. MitoGFP within each mtDNA background (multivariate-$t$ adjusted)"
+#| output: true
+
+fig1p_em <- emmeans::emmeans(fig1p_lme, ~ mito_type * background)
+
+fig1p_contrast_list <- list(
+    "MitoXho1 - MitoGFP | Homoplasmic WT" = c(-1, 1,  0, 0),
+    "MitoXho1 - MitoGFP | Heteroplasmic"  = c( 0, 0, -1, 1)
+)
+
+fig1p_contrast_results <- emmeans::contrast(
+    fig1p_em,
+    method = fig1p_contrast_list,
+    adjust = "mvt"
+) %>%
+    summary(infer = c(TRUE, TRUE)) %>%
+    as_tibble() %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3)), sig = sig_stars(p.value))
+
+fig1p_contrast_results %>%
+    sig_tbl()
+```
+
+```{r}
+#| label: fig1p-contrast-stats
+#| echo: false
+#| output: false
+fig1p_get <- function(bg) fig1p_contrast_results %>% filter(str_detect(contrast, fixed(bg)))
+fig1p_homo_est <- fig1p_get("Homoplasmic WT")$estimate
+fig1p_homo_p   <- fmt_p(fig1p_get("Homoplasmic WT")$p.value)
+fig1p_het_est  <- fig1p_get("Heteroplasmic")$estimate
+fig1p_het_p    <- fmt_p(fig1p_get("Heteroplasmic")$p.value)
+```
+
+MitoXho1 does not significantly change EdU⁺ progeny count relative to MitoGFP in either the Homoplasmic WT background (`r fig1p_homo_est` progeny, $p = `r fig1p_homo_p`$) or the Heteroplasmic background (`r fig1p_het_est` progeny, $p = `r fig1p_het_p`$).
+
+---
+
+## Fig 3E & Supp Fig 7J: UCP1 / UCP2 rescue experiment
+
+NSC mitotic index (% pH3⁺Dpn⁺ / Dpn⁺) is compared in a 3 × 3
+factorial of RNAi condition (`Control`, `Complex I`, `Complex V`) × UCP
+expression (`GFP`, `UCP1`, `UCP2`), one brain per row (n = 6–13 per cell). The
+`UCP1` analysis is shown in Fig 3E and the `UCP2` analysis is shown in
+Supp Fig 7J; both are analysed
+here together. An interaction linear model is fit to the per-brain values:
+
+`Mitotic_index ~ rnai * ucp`
+
+```{r}
+#| label: load-ucp-data
+#| code-summary: "Load UCP1 / UCP2 rescue data and tabulate brains per cell"
+#| output: true
+
+ucp_df <- read_stat("fig_03e_ucp_rescue.csv") %>%
+    filter(!is.na(value)) %>%
+    transmute(
+        Mitotic_index = value,
+        ucp  = factor(rescue_transgene, levels = c("GFP", "UCP1", "UCP2")),
+        rnai = factor(rnai,             levels = c("Control", "Complex I", "Complex V"))
+    )
+
+# Explicit sum-to-zero coding is required for interpretable Type III main
+# effects in this unbalanced factorial design.
+contrasts(ucp_df$ucp)  <- contr.sum(nlevels(ucp_df$ucp))
+contrasts(ucp_df$rnai) <- contr.sum(nlevels(ucp_df$rnai))
+
+ucp_df %>%
+    count(rnai, ucp, name = "n_brains") %>%
+    minimal_tbl()
+```
+
+### Diagnostics
+
+```{r}
+#| label: ucp-lm-raw
+#| code-summary: "Fit interaction linear model (RNAi × UCP) on per-brain mitotic index"
+
+ucp_lm_raw <- lm(Mitotic_index ~ rnai * ucp, data = ucp_df)
+summary(ucp_lm_raw)
+```
+
+::: {.callout-note appearance="simple" collapse="true"}
+## Model fit diagnostics with DHARMa
+
+Scaled residuals from 1,000 simulations are tested for uniform distribution (Kolmogorov–Smirnov), dispersion, and an excess of outliers; all three should be non-significant for a well-fitting model.
+
+```{r}
+#| label: ucp-dharma-raw
+#| code-summary: "Run DHARMa diagnostics"
+#| output: true
+#| fig-width: 8
+#| fig-height: 5
+
+sim_ucp_raw <- DHARMa::simulateResiduals(ucp_lm_raw, n = 1000, seed = DHARMA_SEED)
+plot(sim_ucp_raw)
+
+invisible(capture.output(
+    ucp_dharma_tests <- list(
+        uniformity     = DHARMa::testUniformity(sim_ucp_raw, plot = FALSE),
+        dispersion     = DHARMa::testDispersion(sim_ucp_raw, plot = FALSE),
+        outliers = DHARMa::testOutliers(sim_ucp_raw, plot = FALSE)
+    )
+))
+
+ucp_dharma_tests %>%
+    purrr::map_dfr(
+        \(t) tibble(statistic = t$statistic, p.value = t$p.value),
+        .id = "test"
+    ) %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3)), sig = sig_stars(p.value)) %>%
+    minimal_tbl()
+```
+
+:::
+
+### Global F-test
+
+Type III ANOVA on `rnai * ucp`:
+
+- `rnai`: whether RNAi knockdown affects mitotic index overall
+- `ucp`: whether UCP expression alone has an effect
+- `rnai:ucp`: whether the UCP effect differs across RNAi backgrounds
+
+```{r}
+#| label: ucp-anova
+#| code-summary: "Type III ANOVA"
+#| output: true
+
+ucp_anova_type3 <- car::Anova(ucp_lm_raw, type = "III")
+
+ucp_anova_type3 %>%
+    as.data.frame() %>%
+    tibble::rownames_to_column("term") %>%
+    rename(df = Df, F = `F value`, p.value = `Pr(>F)`) %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3)), sig = sig_stars(p.value)) %>%
+    sig_tbl()
+```
+
+```{r}
+#| label: ucp-anova-stats
+#| echo: false
+#| output: false
+ucp_av       <- as.data.frame(ucp_anova_type3)
+ucp_res_df   <- ucp_av["Residuals", "Df"]
+ucp_rnai_f   <- signif(ucp_av["rnai",     "F value"], 3)
+ucp_rnai_dfn <- ucp_av["rnai",     "Df"]
+ucp_rnai_p   <- fmt_p(ucp_av["rnai",     "Pr(>F)"])
+ucp_ucp_f    <- signif(ucp_av["ucp",      "F value"], 3)
+ucp_ucp_dfn  <- ucp_av["ucp",      "Df"]
+ucp_ucp_p    <- fmt_p(ucp_av["ucp",      "Pr(>F)"])
+ucp_int_f    <- signif(ucp_av["rnai:ucp", "F value"], 3)
+ucp_int_dfn  <- ucp_av["rnai:ucp", "Df"]
+ucp_int_p    <- fmt_p(ucp_av["rnai:ucp", "Pr(>F)"])
+```
+
+The RNAi main effect was highly significant ($F(`r ucp_rnai_dfn`, `r ucp_res_df`) = `r ucp_rnai_f`$, $p = `r ucp_rnai_p`$), with knockdown status accounting for the primary variation in mitotic index. The UCP main effect was not significant ($F(`r ucp_ucp_dfn`, `r ucp_res_df`) = `r ucp_ucp_f`$, $p = `r ucp_ucp_p`$), but the interaction was significant ($F(`r ucp_int_dfn`, `r ucp_res_df`) = `r ucp_int_f`$, $p = `r ucp_int_p`$), with the effect of UCP expression varying by RNAi background.
+
+### Within-condition pairwise tests
+
+`UCP1` and `UCP2` vs. their RNAi-matched `GFP` control within each RNAi condition (Dunnett's test, multivariate-$t$ adjustment across the two comparisons per condition). Estimates are in percentage-point units.
+
+```{r}
+#| label: ucp-contrasts
+#| code-summary: "Marginal means and Dunnett's contrasts (UCP vs. GFP, multivariate-$t$ adjusted)"
+
+ucp_emmeans <- emmeans::emmeans(ucp_lm_raw, ~ ucp | rnai)
+
+ucp_contrasts <- emmeans::contrast(
+    ucp_emmeans,
+    method = "trt.vs.ctrl",
+    ref    = "GFP",
+    adjust = "mvt"
+)
+
+ucp_contrasts_summary <- summary(ucp_contrasts, infer = c(TRUE, TRUE))
+```
+
+```{r}
+#| label: ucp-contrasts-table
+#| output: true
+#| echo: false
+
+ucp_contrasts_summary %>%
+    as_tibble() %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3)), sig = sig_stars(p.value)) %>%
+    sig_tbl()
+```
+
+```{r}
+#| label: ucp-contrast-stats
+#| echo: false
+#| output: false
+ucp_cs        <- as_tibble(ucp_contrasts_summary)
+ucp_ctrl_ci_p <- min(ucp_cs$p.value[ucp_cs$rnai %in% c("Control", "Complex I")])
+ucp_cv1       <- ucp_cs %>% filter(rnai == "Complex V", str_detect(as.character(contrast), "UCP1"))
+ucp_cv2       <- ucp_cs %>% filter(rnai == "Complex V", str_detect(as.character(contrast), "UCP2"))
+ucp_cv1_est   <- signif(ucp_cv1$estimate, 3)
+ucp_cv1_p     <- fmt_p(ucp_cv1$p.value)
+ucp_cv2_est   <- signif(ucp_cv2$estimate, 3)
+ucp_cv2_p     <- fmt_p(ucp_cv2$p.value)
+```
+
+Neither UCP had a significant effect in the `Control` or `Complex I` backgrounds (all $p \ge `r fmt_p(ucp_ctrl_ci_p)`$). In the `Complex V` background, both `UCP1` ($+`r ucp_cv1_est`$ pp, $p = `r ucp_cv1_p`$) and `UCP2` ($+`r ucp_cv2_est`$ pp, $p = `r ucp_cv2_p`$) significantly increased mitotic index relative to `GFP`.
+
+### Cross-condition effect comparisons
+
+Following the significant `rnai:ucp` interaction, these difference-in-differences
+contrasts test whether the *magnitude* of the UCP rescue effect differs between
+the `Complex V` and `Complex I` backgrounds:
+
+- `(UCP1 − GFP | Complex V) − (UCP1 − GFP | Complex I)`
+- `(UCP2 − GFP | Complex V) − (UCP2 − GFP | Complex I)`
+
+```{r}
+#| label: ucp-direct-interaction-contrasts
+#| code-summary: "UCP rescue effect: (multivariate-$t$ adjusted)"
+
+ucp_cell_emmeans <- emmeans::emmeans(ucp_lm_raw, ~ rnai * ucp)
+
+ucp_all_interactions <- emmeans::contrast(
+    ucp_cell_emmeans,
+    interaction = c("revpairwise", "trt.vs.ctrl"),
+    adjust = "none"
+)
+
+ucp_direct_interactions <- subset(
+    ucp_all_interactions,
+    rnai_revpairwise == "Complex V - Complex I"
+)
+
+ucp_direct_interactions_summary <- summary(
+    ucp_direct_interactions,
+    infer = c(TRUE, TRUE),
+    adjust = "mvt"
+)
+
+ucp_direct_interactions_summary
+```
+
+```{r}
+#| label: ucp-interaction-table
+#| output: true
+#| echo: false
+
+ucp_direct_interactions_summary %>%
+    as_tibble() %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3)), sig = sig_stars(p.value)) %>%
+    sig_tbl()
+```
+
+```{r}
+#| label: ucp-interaction-stats
+#| echo: false
+#| output: false
+ucp_di     <- as_tibble(ucp_direct_interactions_summary)
+ucp_di_u1  <- ucp_di %>% filter(str_detect(as.character(ucp_trt.vs.ctrl), "UCP1"))
+ucp_di_u2  <- ucp_di %>% filter(str_detect(as.character(ucp_trt.vs.ctrl), "UCP2"))
+ucp_di_u1_est <- signif(ucp_di_u1$estimate, 3)
+ucp_di_u1_p   <- fmt_p(ucp_di_u1$p.value)
+ucp_di_u2_est <- signif(ucp_di_u2$estimate, 3)
+ucp_di_u2_p   <- fmt_p(ucp_di_u2$p.value)
+```
+
+A positive estimate indicates a larger rescue effect in `Complex V`. Multivariate-*t* adjustment is applied across the two contrasts. Both contrasts were significant: the `UCP1` rescue effect was `r ucp_di_u1_est` percentage-points larger in `Complex V` than `Complex I` ($p = `r ucp_di_u1_p`$), and the `UCP2` effect was `r ucp_di_u2_est` percentage-points larger ($p = `r ucp_di_u2_p`$).
+
+---
+
+## Fig 3G: LbNox rescue experiment
+
+NSC mitotic index (% pH3⁺Dpn⁺ / Dpn⁺) is compared in a 3 × 2
+factorial of LbNox construct (`Control`, `nlsLbNox`, `mitoLbNox`) × RNAi
+background (`Control`, `Complex I`), one brain per row (n = 8–14 per cell). An
+interaction linear model is fit to the per-brain values:
+
+`mitotic_index ~ rnai * lbnox`
+
+```{r}
+#| label: load-lbnox-data
+#| code-summary: "Load Fig 3G LbNox-rescue data and tabulate brains per cell"
+#| output: true
+
+# Fig 3G analysing the Control and Complex I backgrounds
+lbnox_df <- read_stat("fig_03g_lbnox_rescue.csv") %>%
+    filter(!is.na(value), rnai %in% c("Control", "Complex I")) %>%
+    transmute(
+        mitotic_index = value,
+        lbnox = factor(
+            if_else(rescue_transgene == "None", "Control", rescue_transgene),
+            levels = c("Control", "nlsLbNox", "mitoLbNox")
+        ),
+        rnai = factor(rnai, levels = c("Control", "Complex I"))
+    )
+
+# Sum-to-zero coding for interpretable Type III main effects in this
+# unbalanced factorial design.
+contrasts(lbnox_df$lbnox) <- contr.sum(nlevels(lbnox_df$lbnox))
+contrasts(lbnox_df$rnai)  <- contr.sum(nlevels(lbnox_df$rnai))
+
+lbnox_df %>%
+    count(rnai, lbnox, name = "n_brains") %>%
+    minimal_tbl()
+```
+
+### Diagnostics
+
+```{r}
+#| label: lbnox-lm-raw
+#| code-summary: "Fit interaction linear model (RNAi × LbNox) on per-brain mitotic index"
+
+lbnox_lm <- lm(mitotic_index ~ rnai * lbnox, data = lbnox_df)
+summary(lbnox_lm)
+```
+
+::: {.callout-note appearance="simple" collapse="true"}
+## Model fit diagnostics with DHARMa
+
+Scaled residuals from 1,000 simulations are tested for uniform distribution (Kolmogorov–Smirnov), dispersion, and an excess of outliers; all three should be non-significant for a well-fitting model.
+
+```{r}
+#| label: lbnox-dharma
+#| code-summary: "Run DHARMa diagnostics"
+#| output: true
+#| fig-width: 8
+#| fig-height: 5
+
+sim_lbnox <- DHARMa::simulateResiduals(lbnox_lm, n = 1000, seed = DHARMA_SEED)
+plot(sim_lbnox)
+
+invisible(capture.output(
+    lbnox_dharma_tests <- list(
+        uniformity     = DHARMa::testUniformity(sim_lbnox, plot = FALSE),
+        dispersion     = DHARMa::testDispersion(sim_lbnox, plot = FALSE),
+        outliers = DHARMa::testOutliers(sim_lbnox, plot = FALSE)
+    )
+))
+
+lbnox_dharma_tests %>%
+    purrr::map_dfr(
+        \(t) tibble(statistic = t$statistic, p.value = t$p.value),
+        .id = "test"
+    ) %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3)), sig = sig_stars(p.value)) %>%
+    minimal_tbl()
+```
+
+:::
+
+### Global F-test
+
+Type III ANOVA on `rnai * lbnox`:
+
+- `rnai`: whether RNAi knockdown affects mitotic index overall
+- `lbnox`: whether LbNox expression alone has an effect
+- `rnai:lbnox`: whether the LbNox effect differs across RNAi backgrounds
+
+```{r}
+#| label: lbnox-anova
+#| code-summary: "Type III ANOVA"
+#| output: true
+
+lbnox_anova_type3 <- car::Anova(lbnox_lm, type = "III")
+
+lbnox_anova_type3 %>%
+    as.data.frame() %>%
+    tibble::rownames_to_column("term") %>%
+    rename(df = Df, F = `F value`, p.value = `Pr(>F)`) %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3)), sig = sig_stars(p.value)) %>%
+    sig_tbl()
+```
+
+```{r}
+#| label: lbnox-anova-stats
+#| echo: false
+#| output: false
+lb_av       <- as.data.frame(lbnox_anova_type3)
+lb_res_df   <- lb_av["Residuals",  "Df"]
+lb_rnai_f   <- signif(lb_av["rnai",       "F value"], 3)
+lb_rnai_dfn <- lb_av["rnai",       "Df"]
+lb_rnai_p   <- fmt_p(lb_av["rnai",       "Pr(>F)"])
+lb_lb_f     <- signif(lb_av["lbnox",      "F value"], 3)
+lb_lb_dfn   <- lb_av["lbnox",      "Df"]
+lb_lb_p     <- fmt_p(lb_av["lbnox",      "Pr(>F)"])
+lb_int_f    <- signif(lb_av["rnai:lbnox", "F value"], 3)
+lb_int_dfn  <- lb_av["rnai:lbnox", "Df"]
+lb_int_p    <- fmt_p(lb_av["rnai:lbnox", "Pr(>F)"])
+```
+
+The `rnai` main effect was significant ($F(`r lb_rnai_dfn`, `r lb_res_df`) = `r lb_rnai_f`$, $p = `r lb_rnai_p`$), but the `lbnox` main effect was not ($F(`r lb_lb_dfn`, `r lb_res_df`) = `r lb_lb_f`$, $p = `r lb_lb_p`$). The significant interaction ($F(`r lb_int_dfn`, `r lb_res_df`) = `r lb_int_f`$, $p = `r lb_int_p`$) indicates that the effect of LbNox on mitotic index depends on the RNAi background.
+
+### LbNox rescue within each RNAi background (Dunnett-style, multivariate-$t$ adjusted)
+
+`nlsLbNox` and `mitoLbNox` vs. their RNAi-matched `Control` within each RNAi condition (Dunnett's test, multivariate-$t$ adjustment across the two comparisons per condition). Estimates are in percentage-point units.
+
+```{r}
+#| label: lbnox-contrasts
+#| code-summary: "Marginal means and Dunnett's contrasts (LbNox vs. Control, multivariate-$t$ adjusted)"
+
+lbnox_emmeans <- emmeans::emmeans(lbnox_lm, ~ lbnox | rnai)
+
+lbnox_contrasts <- emmeans::contrast(
+    lbnox_emmeans,
+    method = "trt.vs.ctrl",
+    ref    = "Control",
+    adjust = "mvt"
+)
+
+lbnox_contrasts_summary <- summary(lbnox_contrasts, infer = c(TRUE, TRUE))
+```
+
+```{r}
+#| label: lbnox-contrasts-table
+#| output: true
+#| echo: false
+
+lbnox_contrasts_summary %>%
+    as_tibble() %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3)), sig = sig_stars(p.value)) %>%
+    sig_tbl()
+```
+
+```{r}
+#| label: lbnox-contrast-stats
+#| echo: false
+#| output: false
+lb_cs     <- as_tibble(lbnox_contrasts_summary)
+lb_get    <- function(rnai_lvl, construct) {
+    lb_cs %>% filter(as.character(rnai) == rnai_lvl,
+                     str_detect(as.character(contrast), construct))
+}
+lb_ctrl_nls_est  <- signif(lb_get("Control",   "nlsLbNox")$estimate, 3)
+lb_ctrl_nls_p    <- fmt_p(lb_get("Control",    "nlsLbNox")$p.value)
+lb_ctrl_mito_est <- signif(lb_get("Control",   "mitoLbNox")$estimate, 3)
+lb_ctrl_mito_p   <- fmt_p(lb_get("Control",    "mitoLbNox")$p.value)
+lb_ci_nls_est    <- signif(lb_get("Complex I", "nlsLbNox")$estimate, 3)
+lb_ci_nls_p      <- fmt_p(lb_get("Complex I",  "nlsLbNox")$p.value)
+lb_ci_mito_est   <- signif(lb_get("Complex I", "mitoLbNox")$estimate, 3)
+lb_ci_mito_p     <- fmt_p(lb_get("Complex I",  "mitoLbNox")$p.value)
+```
+
+Within the `Control` RNAi background, both nlsLbNox (`r lb_ctrl_nls_est` pp, $p = `r lb_ctrl_nls_p`$) and mitoLbNox (`r lb_ctrl_mito_est` pp, $p = `r lb_ctrl_mito_p`$) slightly reduced mitotic index relative to no-construct controls. Within the `Complex I` RNAi background, both constructs significantly increased mitotic index: nlsLbNox (`r lb_ci_nls_est` pp, $p = `r lb_ci_nls_p`$) and mitoLbNox (`r lb_ci_mito_est` pp, $p = `r lb_ci_mito_p`$).
+
+### Cross-condition effect comparisons
+
+Following the significant `rnai:lbnox` interaction, these difference-in-differences
+contrasts test whether the *magnitude* of the LbNox rescue effect differs between
+the `Complex I` and `Control` RNAi backgrounds:
+
+- `(nlsLbNox − Control | Complex I) − (nlsLbNox − Control | Control RNAi)`
+- `(mitoLbNox − Control | Complex I) − (mitoLbNox − Control | Control RNAi)`
+
+```{r}
+#| label: lbnox-interaction-contrasts
+#| code-summary: "LbNox rescue effect: difference-in-differences (multivariate-$t$ adjusted)"
+
+lbnox_cell_emmeans <- emmeans::emmeans(lbnox_lm, ~ rnai * lbnox)
+
+lbnox_all_interactions <- emmeans::contrast(
+    lbnox_cell_emmeans,
+    interaction = c("revpairwise", "trt.vs.ctrl"),
+    adjust = "none"
+)
+
+lbnox_direct_interactions <- subset(
+    lbnox_all_interactions,
+    rnai_revpairwise == "Complex I - Control"
+)
+
+lbnox_direct_interactions_summary <- summary(
+    lbnox_direct_interactions,
+    infer = c(TRUE, TRUE),
+    adjust = "mvt"
+)
+
+lbnox_direct_interactions_summary
+```
+
+```{r}
+#| label: lbnox-interaction-table
+#| output: true
+#| echo: false
+
+lbnox_direct_interactions_summary %>%
+    as_tibble() %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3)), sig = sig_stars(p.value)) %>%
+    sig_tbl()
+```
+
+```{r}
+#| label: lbnox-interaction-stats
+#| echo: false
+#| output: false
+lb_di      <- as_tibble(lbnox_direct_interactions_summary)
+lb_di_nls  <- lb_di %>% filter(str_detect(as.character(lbnox_trt.vs.ctrl), "nlsLbNox"))
+lb_di_mito <- lb_di %>% filter(str_detect(as.character(lbnox_trt.vs.ctrl), "mitoLbNox"))
+lb_di_nls_est  <- signif(lb_di_nls$estimate, 3)
+lb_di_nls_p    <- fmt_p(lb_di_nls$p.value)
+lb_di_mito_est <- signif(lb_di_mito$estimate, 3)
+lb_di_mito_p   <- fmt_p(lb_di_mito$p.value)
+```
+
+A positive estimate indicates a larger rescue effect in `Complex I` relative to `Control` RNAi. Both difference-in-differences contrasts were significant: the nlsLbNox rescue effect was `r lb_di_nls_est` percentage-points larger in the Complex I background ($p = `r lb_di_nls_p`$), and the mitoLbNox effect was `r lb_di_mito_est` percentage-points larger ($p = `r lb_di_mito_p`$).
+
+---
+
+## Fig 4C: Glial Inx2 KD and NSC proliferation
+
+EdU-positive progeny per NSC clone is compared across three
+populations produced by a bipartite system that drives clonal Complex I RNAi in
+scattered NSCs (LexA/LexOp flip-out) while `repo-GAL4` drives the glial transgene
+in all glia of the same brain; one clone per row:
+
+- `Luciferase`: Complex I RNAi NSC clones in control glia (Luciferase RNAi)
+- `inx2`: Complex I RNAi NSC clones in Inx2-knockdown glia
+- `inx2 (not clones)`: wild-type (non-flipped) NSCs in Inx2-knockdown glia,
+  measured from the same brains as the `inx2` clones
+
+`inx2` and `inx2 (not clones)` are measured from the *same two physical brains*;
+`Luciferase` is an independent set of three unrelated brains.
+
+Because `inx2` and `inx2 (not clones)` are scored on the same brains, those
+two conditions share a random-effect group per brain, while the three
+`Luciferase` brains form their own groups:
+
+`EdU ~ condition + (1 | brain_uid)`
+
+The `inx2` vs. `inx2 (not clones)` comparison is therefore within-brain and
+well replicated at the clone level, whereas comparisons involving `Luciferase`
+are limited by the five independent brains available.
+
+```{r}
+#| label: inx2-load-data
+#| code-summary: "Load Fig 4C inx2 data and tabulate clones and brains per condition"
+#| output: true
+
+# `inx2` and `inx2 (not clones)` are scored on the same physical brains and
+# share one `replicate_id`, which is used directly as the random-effect group.
+inx2_df <- read_stat("fig_04c_inx2_edu.csv") %>%
+    filter(!is.na(value)) %>%
+    transmute(
+        EdU       = value,
+        condition = factor(genotype_raw,
+                           levels = c("Luciferase", "inx2", "inx2 (not clones)")),
+        brain_uid = replicate_id
+    )
+
+inx2_df %>%
+    group_by(condition) %>%
+    summarise(
+        n_clones = n(),
+        n_brains = n_distinct(brain_uid),
+        .groups  = "drop"
+    ) %>%
+    minimal_tbl()
+```
+
+### Diagnostics
+
+```{r}
+#| label: inx2-lme
+#| code-summary: "Fit clone-level linear mixed-effects model"
+
+inx2_lme <- lmerTest::lmer(
+    EdU ~ condition + (1 | brain_uid),
+    data    = inx2_df,
+    REML    = TRUE,
+    control = lme4::lmerControl(optimizer = "bobyqa")
+)
+
+summary(inx2_lme)
+```
+
+::: {.callout-note appearance="simple" collapse="true"}
+## Model fit diagnostics with DHARMa
+
+Scaled residuals from 1,000 simulations are tested for uniform distribution (Kolmogorov–Smirnov), dispersion, and an excess of outliers; all three should be non-significant for a well-fitting model.
+
+```{r}
+#| label: inx2-dharma
+#| code-summary: "Run DHARMa diagnostics"
+#| output: true
+#| fig-width: 8
+#| fig-height: 5
+
+sim_inx2 <- DHARMa::simulateResiduals(inx2_lme, n = 1000, seed = DHARMA_SEED)
+plot(sim_inx2)
+
+invisible(capture.output(
+    inx2_dharma_tests <- list(
+        uniformity     = DHARMa::testUniformity(sim_inx2, plot = FALSE),
+        dispersion     = DHARMa::testDispersion(sim_inx2, plot = FALSE),
+        outliers = DHARMa::testOutliers(sim_inx2, plot = FALSE)
+    )
+))
+
+inx2_dharma_tests %>%
+    purrr::map_dfr(
+        \(t) tibble(statistic = t$statistic, p.value = t$p.value),
+        .id = "test"
+    ) %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3)), sig = sig_stars(p.value)) %>%
+    minimal_tbl()
+```
+
+:::
+
+```{r}
+#| label: inx2-random-effects
+#| code-summary: "Variance-components table (between-brain vs. residual)"
+#| output: true
+
+vc_inx2 <- as.data.frame(lme4::VarCorr(inx2_lme))
+vc_inx2$pct <- round(100 * vc_inx2$vcov / sum(vc_inx2$vcov), 1)
+
+vc_inx2[, c("grp", "vcov", "pct")] %>%
+    minimal_tbl()
+```
+
+### Global F-test
+
+Type III ANOVA (Satterthwaite degrees of freedom) on the `condition` term, testing whether the three populations differ in EdU incorporation.
+
+```{r}
+#| label: inx2-anova
+#| code-summary: "Type III ANOVA"
+#| output: true
+
+anova(inx2_lme, type = "III", ddf = "Satterthwaite") %>%
+    as.data.frame() %>%
+    tibble::rownames_to_column("term") %>%
+    rename(df_num = NumDF, df_den = DenDF, F = `F value`, p.value = `Pr(>F)`) %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3)), sig = sig_stars(p.value)) %>%
+    sig_tbl()
+```
+
+### Inx2 KD effect on CI-deficient and WT NSCs (multivariate-$t$ adjusted)
+
+Estimates are in EdU percentage points.
+
+```{r}
+#| label: inx2-contrasts
+#| code-summary: "Marginal means and the three inx2 contrasts (multivariate-$t$ adjusted)"
+#| output: true
+
+inx2_em <- emmeans::emmeans(inx2_lme, specs = ~ condition)
+
+inx2_contrast_list <- list(
+    "inx2 - Luciferase"              = c(-1,  1,  0),
+    "inx2 (not clones) - inx2"       = c( 0, -1,  1),
+    "inx2 (not clones) - Luciferase" = c(-1,  0,  1)
+)
+
+inx2_contrast_results <- emmeans::contrast(inx2_em, method = inx2_contrast_list, adjust = "mvt") %>%
+    summary(infer = c(TRUE, TRUE)) %>%
+    as_tibble() %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3)),
+           sig = sig_stars(p.value))
+
+inx2_contrast_results %>%
+    sig_tbl()
+```
+
+The `inx2 (not clones) - inx2` contrast is a within-brain comparison (both
+measured from the same 2 physical brains) and is well powered (df ≈ 35);
+contrasts against `Luciferase` are limited by the 5 independent physical
+brains available (df ≈ 4) and do not reach significance. WT-neighbor NSCs
+(`inx2 (not clones)`) are statistically indistinguishable from the unrelated
+WT baseline (`Luciferase`), while the clonal CI-RNAi NSCs (`inx2`)
+proliferate significantly less than their WT neighbors in the same brain.
+
+---
+
+## Fig 4D & 4L: Glial RNAi screen (pooled analysis, joint BH-FDR)
+
+EdU-positive progeny per NSC clone is compared across a pooled
+set of glial RNAi knockdowns (the transmembrane-transporter and
+metabolic-enzyme screens, Fig 4D and Fig 4L, plus the cortex-glia and
+glial-OxPhos screen conditions). Each knockdown is compared against the shared
+reference controls `Luciferase X mCherry` (wild-type proliferation) and
+`Luciferase X ND42` (Complex I dysfunction baseline), one clone per row.
+
+Brains are the biological replicate and the model is:
+
+`EdU ~ condition + (1 | brain_uid)`
+
+Each knockdown is compared to `Luciferase X ND42`, with a Benjamini-Hochberg
+FDR correction applied jointly across all knockdown contrasts.
+
+```{r}
+#| label: combined-load-data
+#| code-summary: "Load the pooled glial RNAi screen data"
+
+CTRL_COMB <- "Luciferase X mCherry"
+REF_COMB  <- "Luciferase X ND42"
+
+combined_raw <- read_stat("edu_glial_screen.csv") %>%
+    filter(in_combined_screen, !is.na(value)) %>%
+    transmute(
+        EdU         = value,
+        genotype    = genotype_raw,
+        date        = collection_date,
+        brain_uid   = replicate_id,
+        figure      = manuscript_panel,
+        screen_type
+    )
+```
+
+### Data Summary
+
+```{r}
+#| label: combined-data-summary
+#| code-summary: "Summarise the screen: clones, conditions, knockdowns, brains, dates"
+#| output: true
+
+combined_raw %>%
+    summarise(
+        n_clone_rows = n(),
+        n_conditions = n_distinct(genotype),
+        n_knockdowns = n_distinct(genotype[screen_type != "control"]),
+        n_brains = n_distinct(brain_uid),
+        n_dates = n_distinct(date)
+    ) %>%
+    minimal_tbl()
+```
+
+### Statistical analysis
+
+```{r}
+#| label: combined-condition-factor
+#| code-summary: "List the screen knockdowns and build the condition factor"
+#| output: false
+
+screen_kds <- combined_raw %>%
+    filter(screen_type != "control") %>%
+    pull(genotype) %>%
+    unique() %>%
+    sort()
+n_screen_kds <- length(screen_kds)
+
+combined_model_data <- combined_raw %>%
+    mutate(
+        condition = factor(
+            genotype,
+            levels = c(CTRL_COMB, REF_COMB, screen_kds)
+        )
+    )
+```
+
+::: {.callout-note appearance="simple" collapse="true"}
+## Replication counts per knockdown
+
+```{r}
+#| label: combined-replication-counts
+#| output: true
+#| echo: false
+
+combined_model_data %>%
+    filter(screen_type != "control") %>%
+    group_by(figure, screen_type, condition) %>%
+    summarise(
+        n_clone_rows = n(),
+        n_brains     = n_distinct(brain_uid),
+        n_dates      = n_distinct(date),
+        .groups      = "drop"
+    ) %>%
+    arrange(figure, screen_type, condition) %>%
+    minimal_tbl()
+```
+
+:::
+
+### Diagnostics
+
+```{r}
+#| label: combined-screen-model
+#| code-summary: "Fit combined-screen no-date model"
+
+combined_screen_model <- lmerTest::lmer(
+    EdU ~ condition + (1 | brain_uid),
+    data = combined_model_data,
+    REML = TRUE,
+    control = lme4::lmerControl(
+        optimizer = "bobyqa",
+        optCtrl = list(maxfun = 200000)
+    )
+)
+
+summary(combined_screen_model)
+```
+
+::: {.callout-note appearance="simple" collapse="true"}
+## Model fit diagnostics with DHARMa
+
+Scaled residuals from 1,000 simulations are tested for uniform distribution (Kolmogorov–Smirnov), dispersion, and an excess of outliers; all three should be non-significant for a well-fitting model.
+
+```{r}
+#| label: combined-dharma
+#| code-summary: "Run DHARMa diagnostics"
+#| output: true
+#| fig-width: 8
+#| fig-height: 5
+
+sim_combined <- DHARMa::simulateResiduals(
+    combined_screen_model,
+    n = 1000,
+    seed = DHARMA_SEED
+)
+plot(sim_combined)
+
+invisible(capture.output(
+    combined_dharma_tests <- list(
+        uniformity     = DHARMa::testUniformity(sim_combined, plot = FALSE),
+        dispersion     = DHARMa::testDispersion(sim_combined, plot = FALSE),
+        outliers = DHARMa::testOutliers(sim_combined, plot = FALSE)
+    )
+))
+
+combined_dharma_tests %>%
+    purrr::map_dfr(
+        \(t) tibble(statistic = t$statistic, p.value = t$p.value),
+        .id = "test"
+    ) %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3)), sig = sig_stars(p.value)) %>%
+    minimal_tbl()
+```
+
+:::
+
+```{r}
+#| label: combined-random-effects
+#| code-summary: "Variance-components table (between-brain vs. residual)"
+#| output: true
+
+vc_combined <- as.data.frame(lme4::VarCorr(combined_screen_model))
+vc_combined$pct <- round(100 * vc_combined$vcov / sum(vc_combined$vcov), 1)
+
+vc_combined[, c("grp", "vcov", "pct")] %>%
+    minimal_tbl()
+```
+
+### Global F-test
+
+Type III ANOVA F-test; the `condition` term tests whether any knockdown differs from the reference across the screen.
+
+```{r}
+#| label: combined-anova
+#| code-summary: "Type III ANOVA"
+#| output: true
+
+combined_anova_res <- anova(combined_screen_model, type = "III", ddf = "Satterthwaite") %>%
+    as.data.frame() %>%
+    tibble::rownames_to_column("term") %>%
+    rename(df_num = NumDF, df_den = DenDF, F = `F value`, p.value = `Pr(>F)`)
+
+combined_anova_res %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3)), sig = sig_stars(p.value)) %>%
+    sig_tbl()
+```
+
+```{r}
+#| label: combined-anova-stats
+#| echo: false
+#| output: false
+comb_f    <- signif(combined_anova_res$F[1], 3)
+comb_dfn  <- combined_anova_res$df_num[1]
+comb_dfd  <- signif(combined_anova_res$df_den[1], 3)
+comb_fp   <- fmt_p(combined_anova_res$p.value[1])
+```
+
+The `condition` term was highly significant ($F(`r comb_dfn`, `r comb_dfd`) = `r comb_f`$, $p = `r comb_fp`$); at least one knockdown condition differs from the CI dysfunction baseline.
+
+### Each knockdown vs. Luciferase × ND42 (joint BH-FDR)
+
+Estimates are in EdU percentage points. The phenotype contrast
+(`Luciferase X ND42` vs. `Luciferase X mCherry`) is a single comparison and is
+not corrected. Each knockdown is compared to `Luciferase X ND42`, with a
+Benjamini-Hochberg FDR correction applied jointly across all `r n_screen_kds`
+knockdown contrasts.
+
+```{r}
+#| label: combined-emmeans
+#| code-summary: "Estimated marginal means per condition"
+
+combined_emmeans <- emmeans::emmeans(combined_screen_model, specs = ~ condition)
+summary(combined_emmeans)
+```
+
+```{r}
+#| label: combined-phenotype-contrast
+#| code-summary: "CI dysfunction vs. wild-type phenotype contrast (uncorrected)"
+#| output: true
+
+phenotype_contrast_comb <- emmeans::contrast(
+    combined_emmeans,
+    method = list(
+        "Luciferase X ND42 - Luciferase X mCherry" =
+            c(-1, 1, rep(0, length(screen_kds)))
+    ),
+    adjust = "none"
+)
+
+phenotype_contrast_summary <- summary(phenotype_contrast_comb, infer = c(TRUE, TRUE)) %>%
+    as_tibble()
+
+phenotype_contrast_summary %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3)), sig = sig_stars(p.value)) %>%
+    sig_tbl()
+```
+
+```{r}
+#| label: combined-phenotype-stats
+#| echo: false
+#| output: false
+pheno_est <- signif(phenotype_contrast_summary$estimate[1], 3)
+pheno_t   <- signif(phenotype_contrast_summary$t.ratio[1], 3)
+pheno_df  <- signif(phenotype_contrast_summary$df[1], 3)
+pheno_p   <- fmt_p(phenotype_contrast_summary$p.value[1])
+```
+
+The CI dysfunction baseline (`Luciferase × ND42`) showed a `r abs(pheno_est)` EdU pp reduction relative to wild-type ($t(`r pheno_df`) = `r pheno_t`$, $p = `r pheno_p`$).
+
+```{r}
+#| label: combined-screen-contrasts
+#| code-summary: "Each knockdown vs. Luciferase X ND42; joint Benjamini-Hochberg FDR across knockdowns"
+#| output: true
+
+combined_em_screen <- combined_emmeans[
+    match(c(REF_COMB, screen_kds), combined_emmeans@grid$condition)
+]
+
+combined_screen_contrasts <- summary(
+    emmeans::contrast(
+        combined_em_screen,
+        method = "trt.vs.ctrl",
+        ref = 1,
+        adjust = "none"
+    ),
+    infer = c(TRUE, TRUE)
+) %>%
+    as_tibble() %>%
+    mutate(
+        gene = as.character(contrast) %>%
+            str_remove(fixed(paste0(" - ", REF_COMB))) %>%
+            str_remove(fixed(paste0(" / ", REF_COMB))) %>%
+            str_replace("^\\((.+)\\)$", "\\1"),
+        p.fdr = p.adjust(p.value, method = "BH"),
+        sig_label = sig_stars(p.fdr, na_as = NA_character_)
+    )
+
+genotype_figure <- combined_raw %>%
+    filter(screen_type != "control") %>%
+    distinct(genotype, figure, screen_type)
+
+combined_results <- combined_screen_contrasts %>%
+    left_join(genotype_figure, by = c("gene" = "genotype")) %>%
+    select(
+        figure,
+        screen_type,
+        gene,
+        estimate,
+        SE,
+        df,
+        lower.CL,
+        upper.CL,
+        t.ratio,
+        p.value,
+        p.fdr,
+        sig_label
+    ) %>%
+    arrange(figure, p.fdr)
+
+combined_results_display <- combined_results %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3)))
+
+reactable::reactable(
+    combined_results_display,
+    elementId     = "combined_screen_table",
+    filterable    = TRUE,
+    pagination    = FALSE,
+    bordered      = TRUE,
+    compact       = TRUE,
+    highlight     = TRUE,
+    defaultSorted = "p.fdr",
+    theme = reactable::reactableTheme(
+        borderColor    = "#dee2e6",
+        stripedColor   = "#f8f9fa",
+        highlightColor = "#f0f0f0",
+        cellPadding    = "6px 8px",
+        style          = list(fontSize = "0.9rem", fontFamily = "inherit")
+    ),
+    rowStyle = function(index) {
+        sig   <- combined_results_display$sig_label[index]
+        color <- switch(sig, "***" = "#c8e6c9", "**" = "#def0de", "*" = "#f0faf0", NA)
+        if (!is.na(color)) list(backgroundColor = color) else list()
+    },
+    defaultColDef = reactable::colDef(
+        header = function(value, name) {
+            htmltools::tagList(
+                value,
+                htmltools::tags$span(
+                    "⇅",
+                    title = "Click to sort",
+                    style = "margin-left: 4px; color: #999; font-size: 0.75em; font-weight: normal;"
+                )
+            )
+        }
+    ),
+    columns = list(
+        figure      = reactable::colDef(minWidth = 70),
+        screen_type = reactable::colDef(
+            name     = "Type",
+            minWidth = 90,
+            filterInput = function(values, name) {
+                htmltools::tags$select(
+                    style = "width: 100%; max-width: 100%; box-sizing: border-box;",
+                    onchange = sprintf(
+                        "Reactable.setFilter('combined_screen_table', '%s', event.target.value || undefined)",
+                        name
+                    ),
+                    htmltools::tags$option(value = "", "All"),
+                    lapply(sort(unique(values)), htmltools::tags$option)
+                )
+            }
+        ),
+        gene      = reactable::colDef(minWidth = 145),
+        estimate  = reactable::colDef(minWidth = 85),
+        SE        = reactable::colDef(minWidth = 48),
+        df        = reactable::colDef(minWidth = 48),
+        lower.CL  = reactable::colDef(name = "Lower", minWidth = 65),
+        upper.CL  = reactable::colDef(name = "Upper", minWidth = 65),
+        t.ratio   = reactable::colDef(minWidth = 54),
+        p.value   = reactable::colDef(minWidth = 70),
+        p.fdr     = reactable::colDef(minWidth = 70),
+        sig_label = reactable::colDef(name = "Sig.",  minWidth = 55)
+    )
+)
+```
+
+```{r}
+#| label: combined-sig-count
+#| echo: false
+#| output: false
+n_sig_combined <- sum(combined_results$p.fdr < 0.05, na.rm = TRUE)
+```
+
+`r n_sig_combined` of `r n_screen_kds` knockdowns reached BH-FDR < 0.05 relative to the CI dysfunction baseline.
+
+---
+
+## Fig 4K: Eaat1 transporter rescue experiment
+
+EdU-positive progeny per NSC clone is compared across genotypes that
+manipulate glial Eaat1 and NSC RNAi independently (two UAS-driver systems), one
+clone per row, with brain as the biological replicate. The genotypes form two
+panels:
+
+  - **Left panel (NSC control RNAi):** `Luciferase × mCherry` (NSC ctrl, glia ctrl)
+    and `Eaat1 × mCherry` (NSC ctrl, glia Eaat1 KD).
+  - **Right panel (NSC Complex I KD):** `Luciferase × ND42` (NSC ND42 KD, glia ctrl),
+    `ND42 × Eaat1 (Bloom)` (NSC ND42 KD, glia Eaat1 KD), and
+    `ND42 × Eaat1 RNAi_Eaat2GFP` (NSC ND42 KD, glia Eaat1 KD + UAS-Eaat2 rescue).
+
+Each panel has its own model. The left panel is fit with a clone-level linear
+mixed-effects model with brain as a random intercept,
+`EdU ~ condition + (1 | brain_uid)`. The right panel is fit with a generalized
+least-squares model on the per-brain mean EdU counts with a condition-specific
+variance, `gls(mean_EdU ~ condition, weights = varIdent(form = ~ 1 | condition))`,
+giving each condition its own between-brain variance.
+
+Two comparisons, specified a priori from the experimental design, are tested:
+
+1. Eaat1 KD specificity (left panel): `Eaat1 × mCherry` vs
+`Luciferase × mCherry`: Does glial Eaat1 KD alone affect NSC proliferation?
+1. CI dysfunction and Eaat2-GFP rescue (right panel): three related
+comparisons, tested together with a joint multiplicity adjustment:
+    - `ND42 × Eaat1 (Bloom)` vs `Luciferase × ND42`: Does Eaat1 KD worsen CI dysfunction?
+    - `ND42 × Eaat1 RNAi_Eaat2GFP` vs `ND42 × Eaat1 (Bloom)`: Does Eaat2 rescue the Eaat1 KD effect?
+    - `ND42 × Eaat1 RNAi_Eaat2GFP` vs `Luciferase × ND42`: Is proliferation restored to the CI-only level?
+
+```{r}
+#| label: eaat1-load-data
+#| code-summary: "Load Fig 4K Eaat1 data and tabulate clones and brains per condition"
+#| output: true
+
+LUC_CTRL_4K     <- "Luciferase X mCherry"
+EAAT1_CTRL_4K   <- "Eaat1 X mCherry"
+LUC_ND42_4K     <- "Luciferase X ND42"
+EAAT1_BLOOM_4K  <- "ND42 X Eaat1 (Bloom)"
+EAAT1_RESCUE_4K <- "ND42 X Eaat1 RNAi_Eaat2GFP"
+
+eaat1_left_conditions  <- c(LUC_CTRL_4K, EAAT1_CTRL_4K)
+eaat1_right_conditions <- c(LUC_ND42_4K, EAAT1_BLOOM_4K, EAAT1_RESCUE_4K)
+eaat1_all_conditions   <- c(eaat1_left_conditions, eaat1_right_conditions)
+
+eaat1_df <- read_stat("edu_glial_screen.csv") %>%
+    filter(!is.na(value), genotype_raw %in% eaat1_all_conditions) %>%
+    transmute(
+        EdU       = value,
+        genotype  = genotype_raw,
+        date      = collection_date,
+        brain_uid = replicate_id,
+        condition = factor(genotype_raw, levels = eaat1_all_conditions)
+    )
+
+eaat1_left_df <- eaat1_df %>%
+    filter(genotype %in% eaat1_left_conditions) %>%
+    mutate(condition = factor(genotype, levels = eaat1_left_conditions))
+
+eaat1_right_df <- eaat1_df %>%
+    filter(genotype %in% eaat1_right_conditions) %>%
+    mutate(condition = factor(genotype, levels = eaat1_right_conditions))
+
+eaat1_df %>%
+    group_by(condition) %>%
+    summarise(
+        n_clones      = n(),
+        n_brains      = n_distinct(brain_uid),
+        n_dates       = n_distinct(date),
+        .groups       = "drop"
+    ) %>%
+    minimal_tbl()
+```
+
+### Diagnostics
+
+```{r}
+#| label: eaat1-lme-fit
+#| code-summary: "Fit left-panel LME and right-panel brain-mean GLS"
+
+eaat1_left_model <- lmerTest::lmer(
+    EdU ~ condition + (1 | brain_uid),
+    data = eaat1_left_df,
+    REML = TRUE
+)
+
+eaat1_brain_means <- eaat1_df %>%
+    group_by(condition, brain_uid) %>%
+    summarise(mean_EdU = mean(EdU), .groups = "drop")
+
+eaat1_right_brain_means <- eaat1_brain_means %>%
+    filter(condition %in% eaat1_right_conditions) %>%
+    mutate(condition = factor(condition, levels = eaat1_right_conditions))
+
+eaat1_right_gls <- nlme::gls(
+    mean_EdU ~ condition,
+    weights = nlme::varIdent(form = ~1 | condition),
+    data    = eaat1_right_brain_means,
+    method  = "REML"
+)
+
+summary(eaat1_left_model)
+summary(eaat1_right_gls)
+```
+
+::: {.callout-note appearance="simple" collapse="true"}
+## Right panel: raw between-brain variance heterogeneity (Brown–Forsythe test)
+
+A Brown–Forsythe test (Levene's test centred on the median) on the per-brain
+means quantifies the between-condition variance heterogeneity that motivates the
+heteroscedastic GLS.
+
+```{r}
+#| label: eaat1-right-raw-levene
+#| code-summary: "Run Brown-Forsythe test on raw brain means"
+#| output: true
+
+eaat1_right_brain_means %>%
+    group_by(condition) %>%
+    summarise(n_brains = n(), sd = signif(sd(mean_EdU), 3), .groups = "drop") %>%
+    minimal_tbl()
+
+eaat1_right_raw_levene <- car::leveneTest(
+    mean_EdU ~ condition,
+    data   = eaat1_right_brain_means,
+    center = "median"
+)
+
+tibble(
+    test      = "Brown-Forsythe (raw brain means)",
+    statistic = signif(eaat1_right_raw_levene$`F value`[1], 3),
+    p.value   = signif(eaat1_right_raw_levene$`Pr(>F)`[1], 3)
+) %>%
+    mutate(sig = sig_stars(p.value)) %>%
+    minimal_tbl()
+```
+
+:::
+
+::: {.callout-note appearance="simple" collapse="true"}
+## Left panel: model fit diagnostics with DHARMa
+
+Scaled residuals from 1,000 simulations are tested for uniform distribution (Kolmogorov–Smirnov), dispersion, and an excess of outliers; all three should be non-significant for a well-fitting model.
+
+```{r}
+#| label: eaat1-dharma
+#| code-summary: "Run DHARMa diagnostics"
+#| output: true
+#| fig-width: 8
+#| fig-height: 5
+
+sim_eaat1_left <- DHARMa::simulateResiduals(eaat1_left_model, n = 1000, seed = DHARMA_SEED)
+plot(sim_eaat1_left)
+
+invisible(capture.output(
+    eaat1_dharma_tests <- list(
+        left_uniformity     = DHARMa::testUniformity(sim_eaat1_left, plot = FALSE),
+        left_dispersion     = DHARMa::testDispersion(sim_eaat1_left, plot = FALSE),
+        left_outliers = DHARMa::testOutliers(sim_eaat1_left, plot = FALSE)
+    )
+))
+
+eaat1_dharma_tests %>%
+    purrr::map_dfr(
+        \(t) tibble(statistic = t$statistic, p.value = t$p.value),
+        .id = "test"
+    ) %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3)), sig = sig_stars(p.value)) %>%
+    minimal_tbl()
+```
+
+:::
+
+::: {.callout-note appearance="simple" collapse="true"}
+## Right panel: normalized-residual diagnostics (DHARMa does not support `gls` objects)
+
+```{r}
+#| label: eaat1-right-gls-diagnostics
+#| code-summary: "Normalised-residual normality and homogeneity checks for the GLS"
+#| output: true
+
+eaat1_right_gls_resid <- resid(eaat1_right_gls, type = "normalized")
+eaat1_right_gls_levene <- car::leveneTest(
+    eaat1_right_gls_resid ~ eaat1_right_brain_means$condition,
+    center = "median"
+)
+
+tibble(
+    test      = c("Shapiro-Wilk (normality)", "Levene (homogeneity by condition)"),
+    statistic = c(
+        signif(shapiro.test(eaat1_right_gls_resid)$statistic, 3),
+        signif(eaat1_right_gls_levene$`F value`[1], 3)
+    ),
+    p.value = c(
+        signif(shapiro.test(eaat1_right_gls_resid)$p.value, 3),
+        signif(eaat1_right_gls_levene$`Pr(>F)`[1], 3)
+    )
+) %>%
+    mutate(sig = sig_stars(p.value)) %>%
+    minimal_tbl()
+```
+
+:::
+
+### Global F-test
+
+A Type III ANOVA F-test is shown for the left-panel mixed model. The
+right-panel GLS has a single fixed-effect term, so its sequential and marginal
+F-tests coincide.
+
+```{r}
+#| label: eaat1-anova
+#| code-summary: "Global F-tests"
+#| output: true
+
+eaat1_anova_left  <- anova(eaat1_left_model, type = "III", ddf = "Satterthwaite") %>% as.data.frame()
+eaat1_anova_right <- anova(eaat1_right_gls) %>% as.data.frame()
+# anova.gls reports no denominator df; for this single-term model it is
+# (n brain-level observations) - (n conditions).
+e_right_dfd_val <- nrow(eaat1_right_brain_means) - length(eaat1_right_conditions)
+
+bind_rows(
+    eaat1_anova_left %>%
+        tibble::rownames_to_column("term") %>%
+        transmute(model = "left_panel", term, df_num = NumDF, df_den = DenDF,
+                  F = `F value`, p.value = `Pr(>F)`),
+    eaat1_anova_right %>%
+        tibble::rownames_to_column("term") %>%
+        filter(term == "condition") %>%
+        transmute(model = "right_panel", term, df_num = numDF, df_den = e_right_dfd_val,
+                  F = `F-value`, p.value = `p-value`)
+) %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3)), sig = sig_stars(p.value)) %>%
+    sig_tbl()
+```
+
+```{r}
+#| label: eaat1-anova-stats
+#| echo: false
+#| output: false
+e_left_f   <- signif(eaat1_anova_left["condition",  "F value"], 3)
+e_left_dfn <- eaat1_anova_left["condition",  "NumDF"]
+e_left_dfd <- signif(eaat1_anova_left["condition",  "DenDF"], 3)
+e_left_p   <- fmt_p(eaat1_anova_left["condition",  "Pr(>F)"])
+e_right_f  <- signif(eaat1_anova_right["condition", "F-value"], 3)
+e_right_dfn<- eaat1_anova_right["condition", "numDF"]
+e_right_dfd<- e_right_dfd_val
+e_right_p  <- fmt_p(eaat1_anova_right["condition", "p-value"])
+```
+
+The left-panel model showed no significant condition effect ($F(`r e_left_dfn`, `r e_left_dfd`) = `r e_left_f`$, $p = `r e_left_p`$). The right-panel model was significant ($F(`r e_right_dfn`, `r e_right_dfd`) = `r e_right_f`$, $p = `r e_right_p`$).
+
+### Eaat1 KD specificity and Eaat2-GFP rescue efficacy
+
+All estimates are in EdU percentage points.
+
+```{r}
+#| label: eaat1-emmeans
+#| code-summary: "Estimated marginal means for the left-panel LME and right-panel GLS"
+
+eaat1_left_em  <- emmeans::emmeans(eaat1_left_model, specs = ~ condition)
+# `data =` is required for emmeans() on a nlme::gls fit with a varIdent structure.
+eaat1_right_em <- emmeans::emmeans(eaat1_right_gls,  specs = ~ condition,
+                                   data = eaat1_right_brain_means)
+
+summary(eaat1_left_em)
+summary(eaat1_right_em)
+```
+
+#### 1. Eaat1 KD alone (left panel)
+
+`Eaat1 × mCherry` vs `Luciferase × mCherry`. Single comparison, no correction.
+
+```{r}
+#| label: eaat1-contrast-left
+#| code-summary: "Eaat1 KD vs. wild-type, left panel (uncorrected)"
+#| output: true
+
+eaat1_left_contrast_summary <- emmeans::contrast(
+    eaat1_left_em,
+    method = list("Eaat1 X mCherry - Luciferase X mCherry" = c(-1, 1)),
+    adjust = "none"
+) %>%
+    summary(infer = c(TRUE, TRUE)) %>%
+    as_tibble()
+
+eaat1_left_contrast_summary %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3)), sig = sig_stars(p.value)) %>%
+    sig_tbl()
+```
+
+```{r}
+#| label: eaat1-contrast-left-stats
+#| echo: false
+#| output: false
+el_est <- signif(eaat1_left_contrast_summary$estimate[1], 3)
+el_t   <- signif(eaat1_left_contrast_summary$t.ratio[1], 3)
+el_df  <- signif(eaat1_left_contrast_summary$df[1], 3)
+el_p   <- fmt_p(eaat1_left_contrast_summary$p.value[1])
+```
+
+Glial Eaat1 knockdown alone did not significantly alter NSC proliferation relative to wild-type (`r el_est` pp, $t(`r el_df`) = `r el_t`$, $p = `r el_p`$).
+
+#### 2. CI dysfunction aggravation and Eaat2-GFP rescue (right panel)
+
+Three comparisons from the per-brain GLS, jointly multivariate-$t$ adjusted.
+The comparison between `ND42 × Eaat1 RNAi_Eaat2GFP` and `ND42 × Eaat1 (Bloom)`
+tests whether Eaat2-GFP rescues the glial Eaat1-knockdown effect.
+
+```{r}
+#| label: eaat1-contrast-right
+#| code-summary: "CI-background Eaat1 KD and Eaat2-GFP rescue contrasts (multivariate-$t$ adjusted)"
+#| output: true
+
+eaat1_right_contrasts <- list(
+    "ND42 X Eaat1 (Bloom) - Luciferase X ND42"          = c(-1,  1,  0),
+    "ND42 X Eaat1 RNAi_Eaat2GFP - ND42 X Eaat1 (Bloom)" = c( 0, -1,  1),
+    "ND42 X Eaat1 RNAi_Eaat2GFP - Luciferase X ND42"    = c(-1,  0,  1)
+)
+
+eaat1_right_contrast_summary <- emmeans::contrast(
+    eaat1_right_em,
+    method = eaat1_right_contrasts,
+    adjust = "mvt"
+) %>%
+    summary(infer = c(TRUE, TRUE)) %>%
+    as_tibble()
+
+eaat1_right_contrast_summary %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3)), sig = sig_stars(p.value)) %>%
+    sig_tbl()
+```
+
+```{r}
+#| label: eaat1-contrast-right-stats
+#| echo: false
+#| output: false
+er <- eaat1_right_contrast_summary
+er_bloom_est <- signif(er$estimate[1], 3)
+er_bloom_p   <- fmt_p(er$p.value[1])
+er_resc_est  <- signif(er$estimate[2], 3)
+er_resc_p    <- fmt_p(er$p.value[2])
+er_rest_est  <- signif(er$estimate[3], 3)
+er_rest_p    <- fmt_p(er$p.value[3])
+```
+
+Glial Eaat1 knockdown significantly worsened NSC proliferation in the CI dysfunction background (`r er_bloom_est` pp, $p = `r er_bloom_p`$). The Eaat2-GFP rescue significantly improved proliferation relative to Eaat1 knockdown alone (`r er_resc_est` pp, $p = `r er_resc_p`$), but proliferation remained significantly below the CI control (`r er_rest_est` pp, $p = `r er_rest_p`$) after multivariate-$t$ correction.
+
+---
+
+## Fig 5E: LDH rescue experiment
+
+EdU-positive progeny per NSC clone is compared across a glial-LDH knockdown
+series with human LDHA, human LDHB, and LbNox rescue constructs, one clone per
+row, with brain as the biological replicate. The genotypes form two
+panels:
+
+- Left panel (Control RNAi): `Luciferase × mCherry` (WT baseline) and
+`LDH x mCherry` (LDH knockdown alone).
+- Right panel (Complex I RNAi): `Luciferase × ND42` (ND42 KD alone),
+`LDH x nd42` (ND42 + LDH double KD, disease baseline), and three rescue
+constructs in the LDH + ND42 background (`ND42 X LdhA;Ldh`, `ND42 X LdhB;Ldh`, and `ND42 X LbNOX;Ldh`).
+
+Each panel has its own model. The left panel is fit with a clone-level linear
+mixed-effects model with brain as a random intercept,
+`EdU ~ condition + (1 | brain_uid)`. The right panel adds a collection-date
+random intercept, `EdU ~ condition + (1 | date_separated) + (1 | brain_uid)`.
+
+Four comparisons, specified a priori from the experimental design, are tested:
+
+  1. LDH KD alone:`LDH x mCherry` vs `Luciferase × mCherry`: Does LDH
+knockdown alone affect proliferation?
+  2. LDH worsens ND42: `LDH x nd42` vs `Luciferase × ND42`: Does adding LDH
+knockdown to ND42 further reduce proliferation?
+  3. Rescue vs disease baseline: Each rescue construct vs `LDH x nd42`, with a
+multivariate-$t$ adjustment across the three comparisons.
+  4. Rescue to control level: Each rescue construct vs `Luciferase × ND42`,
+with a multivariate-$t$ adjustment across the three comparisons: Is
+proliferation restored to the ND42-only level?
+
+```{r}
+#| label: load-ldh-data
+#| code-summary: "Load Fig 5E LDH-rescue data and build the condition factors"
+#| output: true
+
+LUC_CTRL    <- "Luciferase X mCherry"
+LDH_CTRL    <- "LDH x mCherry"
+LUC_ND42    <- "Luciferase X ND42"
+LDH_REF     <- "LDH x nd42"
+ldh_rescues <- c("ND42 X LdhA;Ldh", "ND42 X LdhB;Ldh", "ND42 X LbNOX;Ldh")
+
+ldh_all_conditions <- c(LUC_CTRL, LDH_CTRL, LUC_ND42, LDH_REF, ldh_rescues)
+ldh_control_rnai_conditions <- c(LUC_CTRL, LDH_CTRL)
+ldh_complex_i_rescue_conditions <- c(LUC_ND42, LDH_REF, ldh_rescues)
+
+ldh_df <- read_stat("edu_glial_screen.csv") %>%
+    filter(!is.na(value), genotype_raw %in% ldh_all_conditions) %>%
+    transmute(
+        EdU       = value,
+        genotype  = genotype_raw,
+        date      = collection_date,
+        brain_uid = replicate_id,
+        date_separated = if_else(collection_date == "undated",
+                                 paste0("undated__", genotype_raw), collection_date),
+        condition = factor(genotype_raw, levels = ldh_all_conditions)
+    )
+
+ldh_control_rnai_df <- ldh_df %>%
+    filter(genotype %in% ldh_control_rnai_conditions) %>%
+    mutate(condition = factor(genotype, levels = ldh_control_rnai_conditions))
+
+ldh_complex_i_rescue_df <- ldh_df %>%
+    filter(genotype %in% ldh_complex_i_rescue_conditions) %>%
+    mutate(condition = factor(genotype, levels = ldh_complex_i_rescue_conditions))
+
+ldh_df %>%
+    group_by(condition) %>%
+    summarise(
+        n_clones = n(),
+        n_brains = n_distinct(brain_uid),
+        n_dates = n_distinct(date_separated),
+        .groups = "drop"
+    ) %>%
+    minimal_tbl()
+```
+
+### Diagnostics
+
+```{r}
+#| label: ldh-lme-fit
+#| code-summary: "Fit panel-specific linear mixed-effects models"
+
+ldh_control_rnai_model <- lmerTest::lmer(
+    EdU ~ condition + (1 | brain_uid),
+    data = ldh_control_rnai_df,
+    REML = TRUE
+)
+
+ldh_complex_i_rescue_model <- lmerTest::lmer(
+    EdU ~ condition + (1 | date_separated) + (1 | brain_uid),
+    data = ldh_complex_i_rescue_df,
+    REML = TRUE
+)
+
+summary(ldh_control_rnai_model)
+summary(ldh_complex_i_rescue_model)
+```
+
+::: {.callout-note appearance="simple" collapse="true"}
+## Model fit diagnostics with DHARMa
+
+Scaled residuals from 1,000 simulations are tested for uniform distribution (Kolmogorov–Smirnov), dispersion, and an excess of outliers; all three should be non-significant for a well-fitting model.
+
+```{r}
+#| label: ldh-dharma
+#| code-summary: "Run DHARMa diagnostics"
+#| output: true
+#| fig-width: 8
+#| fig-height: 5
+
+sim_ldh_control_rnai <- DHARMa::simulateResiduals(
+    ldh_control_rnai_model,
+    n = 1000,
+    seed = DHARMA_SEED
+)
+sim_ldh_complex_i_rescue <- DHARMa::simulateResiduals(
+    ldh_complex_i_rescue_model,
+    n = 1000,
+    seed = DHARMA_SEED
+)
+
+plot(sim_ldh_control_rnai)
+plot(sim_ldh_complex_i_rescue)
+
+invisible(capture.output(
+    ldh_dharma_tests <- list(
+        control_rnai_uniformity =
+            DHARMa::testUniformity(sim_ldh_control_rnai, plot = FALSE),
+        control_rnai_dispersion =
+            DHARMa::testDispersion(sim_ldh_control_rnai, plot = FALSE),
+        control_rnai_outliers =
+            DHARMa::testOutliers(sim_ldh_control_rnai, plot = FALSE),
+        complex_i_rescue_uniformity =
+            DHARMa::testUniformity(sim_ldh_complex_i_rescue, plot = FALSE),
+        complex_i_rescue_dispersion =
+            DHARMa::testDispersion(sim_ldh_complex_i_rescue, plot = FALSE),
+        complex_i_rescue_outliers =
+            DHARMa::testOutliers(sim_ldh_complex_i_rescue, plot = FALSE)
+    )
+))
+
+ldh_dharma_tests %>%
+    purrr::map_dfr(
+        \(t) tibble(statistic = t$statistic, p.value = t$p.value),
+        .id = "test"
+    ) %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3)), sig = sig_stars(p.value)) %>%
+    minimal_tbl()
+```
+
+:::
+
+### Global F-test
+
+Type III ANOVA F-tests are shown separately for the
+left- and right-panel models.
+
+```{r}
+#| label: ldh-anova
+#| code-summary: "Type III ANOVA"
+#| output: true
+
+ldh_anova_ctrl <- anova(ldh_control_rnai_model,    type = "III", ddf = "Satterthwaite") %>% as.data.frame()
+ldh_anova_ci   <- anova(ldh_complex_i_rescue_model, type = "III", ddf = "Satterthwaite") %>% as.data.frame()
+
+bind_rows(
+    ldh_anova_ctrl %>% tibble::rownames_to_column("term") %>% mutate(model = "control_rnai"),
+    ldh_anova_ci   %>% tibble::rownames_to_column("term") %>% mutate(model = "complex_i_rescue")
+) %>%
+    rename(df_num = NumDF, df_den = DenDF, F = `F value`, p.value = `Pr(>F)`) %>%
+    select(model, term, everything()) %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3)), sig = sig_stars(p.value)) %>%
+    sig_tbl()
+```
+
+```{r}
+#| label: ldh-anova-stats
+#| echo: false
+#| output: false
+ldh_ctrl_f   <- signif(ldh_anova_ctrl["condition", "F value"], 3)
+ldh_ctrl_dfn <- ldh_anova_ctrl["condition", "NumDF"]
+ldh_ctrl_dfd <- signif(ldh_anova_ctrl["condition", "DenDF"], 3)
+ldh_ctrl_p   <- fmt_p(ldh_anova_ctrl["condition", "Pr(>F)"])
+ldh_ci_f     <- signif(ldh_anova_ci["condition",   "F value"], 3)
+ldh_ci_dfn   <- ldh_anova_ci["condition",   "NumDF"]
+ldh_ci_dfd   <- signif(ldh_anova_ci["condition",   "DenDF"], 3)
+ldh_ci_p     <- fmt_p(ldh_anova_ci["condition",   "Pr(>F)"])
+```
+
+The left-panel model (Control RNAi background) showed no significant condition effect ($F(`r ldh_ctrl_dfn`, `r ldh_ctrl_dfd`) = `r ldh_ctrl_f`$, $p = `r ldh_ctrl_p`$). The right-panel model (CI rescue conditions) was highly significant ($F(`r ldh_ci_dfn`, `r ldh_ci_dfd`) = `r ldh_ci_f`$, $p = `r ldh_ci_p`$).
+
+### LDH knockdown effect, Complex I aggravation, and rescue efficacy
+
+All estimates are in EdU percentage points.
+
+```{r}
+#| label: ldh-emmeans
+#| code-summary: "Estimated marginal means for the control-RNAi and CI-rescue panels"
+
+ldh_control_rnai_em <- emmeans::emmeans(
+    ldh_control_rnai_model,
+    specs = ~ condition
+)
+ldh_complex_i_rescue_em <- emmeans::emmeans(
+    ldh_complex_i_rescue_model,
+    specs = ~ condition
+)
+
+summary(ldh_control_rnai_em)
+summary(ldh_complex_i_rescue_em)
+```
+
+#### 1. LDH knockdown alone (left panel)
+
+`LDH x mCherry` vs `Luciferase × mCherry`. Single comparison, no correction.
+
+```{r}
+#| label: ldh-contrast-ldh-alone
+#| code-summary: "LDH KD vs. wild-type, left panel"
+#| output: true
+
+ldh_alone_summary <- emmeans::contrast(
+    ldh_control_rnai_em,
+    method = list("LDH x mCherry - Luciferase X mCherry" = c(-1, 1)),
+    adjust = "none"
+) %>%
+    summary(infer = c(TRUE, TRUE)) %>%
+    as_tibble()
+
+ldh_alone_summary %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3)), sig = sig_stars(p.value)) %>%
+    sig_tbl()
+```
+
+```{r}
+#| label: ldh-alone-stats
+#| echo: false
+#| output: false
+ldh_alone_est <- signif(ldh_alone_summary$estimate[1], 3)
+ldh_alone_t   <- signif(ldh_alone_summary$t.ratio[1], 3)
+ldh_alone_df  <- signif(ldh_alone_summary$df[1], 3)
+ldh_alone_p   <- fmt_p(ldh_alone_summary$p.value[1])
+```
+
+LDH knockdown alone did not significantly alter NSC proliferation relative to wild-type (`r ldh_alone_est` pp, $t(`r ldh_alone_df`) = `r ldh_alone_t`$, $p = `r ldh_alone_p`$).
+
+#### 2. LDH KD worsens ND42 phenotype (right panel)
+
+`LDH x nd42` vs `Luciferase × ND42`. Single comparison, no correction.
+
+```{r}
+#| label: ldh-contrast-ldh-worsens
+#| code-summary: "LDH KD + CI vs. CI alone, right panel"
+#| output: true
+
+ldh_worsens_summary <- emmeans::contrast(
+    ldh_complex_i_rescue_em,
+    method = list("LDH x nd42 - Luciferase X ND42" = c(-1, 1, 0, 0, 0)),
+    adjust = "none"
+) %>%
+    summary(infer = c(TRUE, TRUE)) %>%
+    as_tibble()
+
+ldh_worsens_summary %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3)), sig = sig_stars(p.value)) %>%
+    sig_tbl()
+```
+
+```{r}
+#| label: ldh-worsens-stats
+#| echo: false
+#| output: false
+ldh_w_est <- signif(ldh_worsens_summary$estimate[1], 3)
+ldh_w_t   <- signif(ldh_worsens_summary$t.ratio[1], 3)
+ldh_w_df  <- signif(ldh_worsens_summary$df[1], 3)
+ldh_w_p   <- fmt_p(ldh_worsens_summary$p.value[1])
+```
+
+Combined LDH knockdown with CI dysfunction significantly reduced NSC proliferation relative to CI dysfunction alone (`r ldh_w_est` pp, $t(`r ldh_w_df`) = `r ldh_w_t`$, $p = `r ldh_w_p`$).
+
+#### 3. Rescue vs disease baseline
+
+Each rescue construct vs `LDH x nd42` (multivariate-$t$ adjusted across 3 comparisons).
+
+```{r}
+#| label: ldh-rescue-vs-baseline
+#| code-summary: "Rescue vs LDH x nd42 (multivariate-$t$ adjusted)"
+
+ldh_em_vs_baseline <- ldh_complex_i_rescue_em[
+    match(c(LDH_REF, ldh_rescues), ldh_complex_i_rescue_em@grid$condition)
+]
+
+ldh_rescue_vs_baseline_summary <- summary(
+    emmeans::contrast(ldh_em_vs_baseline, method = "trt.vs.ctrl", ref = 1, adjust = "mvt"),
+    infer = c(TRUE, TRUE)
+)
+```
+
+```{r}
+#| label: ldh-rescue-vs-baseline-table
+#| output: true
+#| echo: false
+
+ldh_rescue_vs_baseline_summary %>%
+    as_tibble() %>%
+    mutate(
+        contrast = str_remove(contrast, fixed(paste0(" - ", LDH_REF))),
+        across(where(is.numeric), \(x) signif(x, 3)),
+        sig = sig_stars(p.value)
+    ) %>%
+    sig_tbl()
+```
+
+```{r}
+#| label: ldh-rescue-vs-baseline-stats
+#| echo: false
+#| output: false
+ldh_vsb       <- as_tibble(ldh_rescue_vs_baseline_summary) %>%
+    mutate(gene = str_remove(contrast, fixed(paste0(" - ", LDH_REF))))
+ldh_vsb_sig   <- ldh_vsb %>% filter(p.value < 0.05) %>% pull(gene)
+ldh_vsb_ns    <- ldh_vsb %>% filter(p.value >= 0.05) %>% pull(gene)
+ldh_vsb_sig_str <- if (length(ldh_vsb_sig) == 0) "None" else paste(ldh_vsb_sig, collapse = " and ")
+ldh_vsb_ns_str  <- if (length(ldh_vsb_ns)  == 0) "none" else paste(ldh_vsb_ns,  collapse = " and ")
+```
+
+`r ldh_vsb_sig_str` significantly increased proliferation relative to the `LDH × ND42` baseline; `r ldh_vsb_ns_str` did not.
+
+#### 4. Rescue to control level
+
+Each rescue construct vs `Luciferase × ND42` (multivariate-$t$ adjusted across 3 comparisons).
+A non-significant result indicates the condition is not detectably different from
+the ND42-only control, i.e. proliferation is restored.
+
+```{r}
+#| label: ldh-rescue-vs-control
+#| code-summary: "Rescue vs Luciferase X ND42 (multivariate-$t$ adjusted)"
+
+ldh_em_vs_control <- ldh_complex_i_rescue_em[
+    match(c(LUC_ND42, ldh_rescues), ldh_complex_i_rescue_em@grid$condition)
+]
+
+ldh_rescue_vs_control_summary <- summary(
+    emmeans::contrast(ldh_em_vs_control, method = "trt.vs.ctrl", ref = 1, adjust = "mvt"),
+    infer = c(TRUE, TRUE)
+)
+```
+
+```{r}
+#| label: ldh-rescue-vs-control-table
+#| output: true
+#| echo: false
+
+ldh_rescue_vs_control_summary %>%
+    as_tibble() %>%
+    mutate(
+        contrast = str_remove(contrast, fixed(paste0(" - ", LUC_ND42))),
+        across(where(is.numeric), \(x) signif(x, 3)),
+        sig = sig_stars(p.value)
+    ) %>%
+    sig_tbl()
+```
+
+```{r}
+#| label: ldh-rescue-vs-control-stats
+#| echo: false
+#| output: false
+ldh_vsc     <- as_tibble(ldh_rescue_vs_control_summary) %>%
+    mutate(gene = str_remove(contrast, fixed(paste0(" - ", LUC_ND42))))
+ldh_vsc_ns  <- ldh_vsc %>% filter(p.value >= 0.05) %>% pull(gene)
+ldh_vsc_sig <- ldh_vsc %>% filter(p.value <  0.05) %>% pull(gene)
+ldh_vsc_ns_str  <- if (length(ldh_vsc_ns)  == 0) "None" else paste(ldh_vsc_ns,  collapse = " and ")
+ldh_vsc_sig_str <- if (length(ldh_vsc_sig) == 0) "none" else paste(ldh_vsc_sig, collapse = " and ")
+```
+
+`r ldh_vsc_ns_str` remained indistinguishable from the `Luciferase × ND42` control (partial restoration); `r ldh_vsc_sig_str` was significantly below the control level.
+
+---
+
+## Fig S1I-J: NSC proliferation rate
+
+NSC proliferation rate (EdU-positive progeny per clone) is
+compared across Control, Complex I, and Complex V RNAi, one clone per row. Two
+mosaic systems affect different fractions of NSCs and are analysed as separate
+models:
+
+- **Most NSCs affected:** `worniu-GAL4, Tub-FRT-Stop-FRT-GFP`
+- **Few NSCs affected:** `Actin-FRT-Stop-FRT-GAL4, UAS-mCD8-GFP`
+
+Brains are the biological replicate and enter each panel's model as a random
+intercept:
+
+`EdU ~ rnai + (1 | brain_uid)`
+
+Complex I and Complex V RNAi are each compared to the panel-matched Control RNAi,
+with a multivariate-$t$ adjustment across the two comparisons within a panel.
+
+```{r}
+#| label: load-s1e-data
+#| code-summary: "Load Fig S1I-J proliferation-rate data and tabulate clones and brains per group"
+#| output: true
+
+s1e_df <- read_stat("fig_s01i_j_edu.csv") %>%
+    filter(!is.na(value)) %>%
+    transmute(
+        EdU   = value,
+        panel = factor(
+            if_else(panel_side == "left", "Most NSCs affected", "Few NSCs affected"),
+            levels = c("Most NSCs affected", "Few NSCs affected")
+        ),
+        rnai      = factor(rnai, levels = c("Control", "Complex I", "Complex V")),
+        brain_uid = factor(replicate_id)
+    )
+
+s1e_df %>%
+    group_by(panel, rnai) %>%
+    summarise(
+        n_clones = n(),
+        n_brains = n_distinct(brain_uid),
+        .groups = "drop"
+    ) %>%
+    minimal_tbl()
+```
+
+### Diagnostics
+
+```{r}
+#| label: s1e-lme-fit
+#| code-summary: "Fit panel-specific linear mixed-effects models"
+
+s1e_most_nscs_df <- s1e_df %>%
+    filter(panel == "Most NSCs affected")
+
+s1e_few_nscs_df <- s1e_df %>%
+    filter(panel == "Few NSCs affected")
+
+s1e_most_nscs_model <- lmerTest::lmer(
+    EdU ~ rnai + (1 | brain_uid),
+    data = s1e_most_nscs_df,
+    REML = TRUE
+)
+
+s1e_few_nscs_model <- lmerTest::lmer(
+    EdU ~ rnai + (1 | brain_uid),
+    data = s1e_few_nscs_df,
+    REML = TRUE
+)
+
+summary(s1e_most_nscs_model)
+summary(s1e_few_nscs_model)
+```
+
+::: {.callout-note appearance="simple" collapse="true"}
+## Model fit diagnostics with DHARMa
+
+Scaled residuals from 1,000 simulations are tested for uniform distribution (Kolmogorov–Smirnov), dispersion, and an excess of outliers; all three should be non-significant for a well-fitting model.
+
+```{r}
+#| label: s1e-dharma
+#| code-summary: "Run DHARMa diagnostics"
+#| output: true
+#| fig-width: 8
+#| fig-height: 5
+
+sim_s1e_most_nscs <- DHARMa::simulateResiduals(
+    s1e_most_nscs_model,
+    n = 1000,
+    seed = DHARMA_SEED
+)
+sim_s1e_few_nscs <- DHARMa::simulateResiduals(
+    s1e_few_nscs_model,
+    n = 1000,
+    seed = DHARMA_SEED
+)
+
+plot(sim_s1e_most_nscs)
+plot(sim_s1e_few_nscs)
+
+invisible(capture.output(
+    s1e_dharma_tests <- list(
+        most_nscs_uniformity =
+            DHARMa::testUniformity(sim_s1e_most_nscs, plot = FALSE),
+        most_nscs_dispersion =
+            DHARMa::testDispersion(sim_s1e_most_nscs, plot = FALSE),
+        most_nscs_outliers =
+            DHARMa::testOutliers(sim_s1e_most_nscs, plot = FALSE),
+        few_nscs_uniformity =
+            DHARMa::testUniformity(sim_s1e_few_nscs, plot = FALSE),
+        few_nscs_dispersion =
+            DHARMa::testDispersion(sim_s1e_few_nscs, plot = FALSE),
+        few_nscs_outliers =
+            DHARMa::testOutliers(sim_s1e_few_nscs, plot = FALSE)
+    )
+))
+
+s1e_dharma_tests %>%
+    purrr::map_dfr(
+        \(t) tibble(statistic = t$statistic, p.value = t$p.value),
+        .id = "test"
+    ) %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3)), sig = sig_stars(p.value)) %>%
+    minimal_tbl()
+```
+
+:::
+
+### Global F-test
+
+Type III ANOVA F-tests are shown separately for the two panel-specific models.
+
+```{r}
+#| label: s1e-anova
+#| code-summary: "Type III ANOVA"
+#| output: true
+
+s1e_anova_most <- anova(s1e_most_nscs_model, type = "III", ddf = "Satterthwaite") %>% as.data.frame()
+s1e_anova_few  <- anova(s1e_few_nscs_model,  type = "III", ddf = "Satterthwaite") %>% as.data.frame()
+
+bind_rows(
+    s1e_anova_most %>% tibble::rownames_to_column("term") %>% mutate(panel = "Most NSCs affected"),
+    s1e_anova_few  %>% tibble::rownames_to_column("term") %>% mutate(panel = "Few NSCs affected")
+) %>%
+    rename(df_num = NumDF, df_den = DenDF, F = `F value`, p.value = `Pr(>F)`) %>%
+    select(panel, term, everything()) %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3)), sig = sig_stars(p.value)) %>%
+    sig_tbl()
+```
+
+```{r}
+#| label: s1e-anova-stats
+#| echo: false
+#| output: false
+s1e_most_f   <- signif(s1e_anova_most["rnai", "F value"], 3)
+s1e_most_dfn <- s1e_anova_most["rnai", "NumDF"]
+s1e_most_dfd <- signif(s1e_anova_most["rnai", "DenDF"], 3)
+s1e_most_p   <- fmt_p(s1e_anova_most["rnai", "Pr(>F)"])
+s1e_few_f    <- signif(s1e_anova_few["rnai",  "F value"], 3)
+s1e_few_dfn  <- s1e_anova_few["rnai",  "NumDF"]
+s1e_few_dfd  <- signif(s1e_anova_few["rnai",  "DenDF"], 3)
+s1e_few_p    <- fmt_p(s1e_anova_few["rnai",  "Pr(>F)"])
+```
+
+The `rnai` main effect was highly significant in the Most NSCs panel ($F(`r s1e_most_dfn`, `r s1e_most_dfd`) = `r s1e_most_f`$, $p = `r s1e_most_p`$) but not in the Few NSCs panel ($F(`r s1e_few_dfn`, `r s1e_few_dfd`) = `r s1e_few_f`$, $p = `r s1e_few_p`$).
+
+### Complex I and Complex V RNAi vs. Control RNAi, per panel (multivariate-$t$ adjusted)
+
+Estimates are in EdU percentage points. Each RNAi condition is compared to the
+panel-matched Control RNAi group.
+
+```{r}
+#| label: s1e-contrasts
+#| code-summary: "Complex I and Complex V vs. Control contrasts, per panel (multivariate-$t$ adjusted)"
+
+s1e_most_nscs_em <- emmeans::emmeans(s1e_most_nscs_model, specs = ~ rnai)
+s1e_few_nscs_em <- emmeans::emmeans(s1e_few_nscs_model, specs = ~ rnai)
+
+s1e_most_nscs_contrasts <- summary(
+    emmeans::contrast(
+        s1e_most_nscs_em,
+        method = "trt.vs.ctrl",
+        ref = "Control",
+        adjust = "mvt"
+    ),
+    infer = c(TRUE, TRUE)
+) %>%
+    as_tibble() %>%
+    mutate(panel = "Most NSCs affected")
+
+s1e_few_nscs_contrasts <- summary(
+    emmeans::contrast(
+        s1e_few_nscs_em,
+        method = "trt.vs.ctrl",
+        ref = "Control",
+        adjust = "mvt"
+    ),
+    infer = c(TRUE, TRUE)
+) %>%
+    as_tibble() %>%
+    mutate(panel = "Few NSCs affected")
+
+s1e_contrast_results <- bind_rows(
+    s1e_most_nscs_contrasts,
+    s1e_few_nscs_contrasts
+) %>%
+    select(panel, everything()) %>%
+    mutate(sig = sig_stars(p.value))
+```
+
+```{r}
+#| label: s1e-contrast-table
+#| output: true
+#| echo: false
+
+s1e_contrast_results %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3))) %>%
+    sig_tbl()
+```
+
+```{r}
+#| label: s1e-contrast-stats
+#| echo: false
+#| output: false
+s1e_get <- function(panel_name, contrast_name) {
+    s1e_contrast_results %>%
+        filter(panel == panel_name, str_detect(contrast, contrast_name))
+}
+s1e_most_ci_est <- signif(s1e_get("Most NSCs affected", "Complex I")$estimate, 3)
+s1e_most_ci_p   <- fmt_p(s1e_get("Most NSCs affected", "Complex I")$p.value)
+s1e_most_cv_est <- signif(s1e_get("Most NSCs affected", "Complex V")$estimate, 3)
+s1e_most_cv_p   <- fmt_p(s1e_get("Most NSCs affected", "Complex V")$p.value)
+s1e_few_ci_p    <- fmt_p(s1e_get("Few NSCs affected",  "Complex I")$p.value)
+s1e_few_cv_p    <- fmt_p(s1e_get("Few NSCs affected",  "Complex V")$p.value)
+```
+
+In the Most NSCs panel, both knockdowns significantly reduced EdU relative to Control: Complex I (`r s1e_most_ci_est` pp, $p = `r s1e_most_ci_p`$) and Complex V (`r s1e_most_cv_est` pp, $p = `r s1e_most_cv_p`$). Neither contrast was significant in the Few NSCs panel (Complex I $p = `r s1e_few_ci_p`$; Complex V $p = `r s1e_few_cv_p`$), consistent with the non-significant ANOVA for that panel.
+
+---
+
+## Fig S7C: pAMPK levels and ATP depletion
+
+Normalised pAMPK intensity is compared across Control, Complex I,
+and Complex V RNAi, one NSC per row, with brain as a random intercept. The
+response is log-transformed:
+
+`log(normalized_intensity) ~ condition + (1 | brain_uid)`
+
+Complex I and Complex V RNAi are each compared to Control RNAi, together with a
+direct Complex I vs. Complex V comparison, jointly multivariate-$t$ adjusted.
+Contrasts are back-transformed and reported as fold-changes relative to Control
+RNAi.
+
+```{r}
+#| label: pampk-load-data
+#| code-summary: "Load Fig S7C pAMPK data and tabulate NSCs and brains per condition"
+#| output: true
+
+pampk_df <- read_stat("fig_s07c_pampk.csv") %>%
+    filter(!is.na(value)) %>%
+    transmute(
+        normalized_intensity = value,
+        condition = factor(genotype_raw,
+                           levels = c("Control RNAi", "Complex I RNAi", "Complex V RNAi")),
+        brain_uid = factor(replicate_id)
+    )
+
+pampk_df %>%
+    group_by(condition) %>%
+    summarise(
+        n_measurements = n(),
+        n_brains       = n_distinct(brain_uid),
+        .groups        = "drop"
+    ) %>%
+    minimal_tbl()
+```
+
+### Diagnostics
+
+```{r}
+#| label: pampk-lme
+#| code-summary: "Fit brain-level linear mixed-effects model"
+
+pampk_model <- lmerTest::lmer(
+    log(normalized_intensity) ~ condition + (1 | brain_uid),
+    data = pampk_df,
+    REML = TRUE
+)
+summary(pampk_model)
+```
+
+::: {.callout-note appearance="simple" collapse="true"}
+## Model fit diagnostics with DHARMa
+
+Scaled residuals from 1,000 simulations are tested for uniform distribution (Kolmogorov–Smirnov), dispersion, and an excess of outliers; all three should be non-significant for a well-fitting model.
+
+```{r}
+#| label: pampk-dharma
+#| code-summary: "Run DHARMa diagnostics"
+#| output: true
+#| fig-width: 8
+#| fig-height: 5
+
+sim_pampk <- DHARMa::simulateResiduals(pampk_model, n = 1000, seed = DHARMA_SEED)
+plot(sim_pampk)
+
+invisible(capture.output(
+    pampk_dharma_tests <- list(
+        uniformity     = DHARMa::testUniformity(sim_pampk, plot = FALSE),
+        dispersion     = DHARMa::testDispersion(sim_pampk, plot = FALSE),
+        outliers = DHARMa::testOutliers(sim_pampk, plot = FALSE)
+    )
+))
+
+pampk_dharma_tests %>%
+    purrr::map_dfr(
+        \(t) tibble(statistic = t$statistic, p.value = t$p.value),
+        .id = "test"
+    ) %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3)), sig = sig_stars(p.value)) %>%
+    minimal_tbl()
+```
+
+:::
+
+### Global F-test
+
+Type III ANOVA (Satterthwaite degrees of freedom) on the `condition` term.
+
+```{r}
+#| label: pampk-anova
+#| code-summary: "Type III ANOVA"
+#| output: true
+
+pampk_anova <- anova(pampk_model, type = "III", ddf = "Satterthwaite") %>%
+    as.data.frame()
+
+pampk_anova %>%
+    tibble::rownames_to_column("term") %>%
+    rename(df_num = NumDF, df_den = DenDF, F = `F value`, p.value = `Pr(>F)`) %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3)), sig = sig_stars(p.value)) %>%
+    sig_tbl()
+```
+
+```{r}
+#| label: pampk-anova-stats
+#| echo: false
+#| output: false
+pampk_f    <- signif(pampk_anova["condition", "F value"], 3)
+pampk_dfn  <- pampk_anova["condition", "NumDF"]
+pampk_dfd  <- signif(pampk_anova["condition", "DenDF"], 3)
+pampk_anova_p <- fmt_p(pampk_anova["condition", "Pr(>F)"])
+```
+
+The `condition` main effect is significant ($F(`r pampk_dfn`, `r pampk_dfd`) = `r pampk_f`$, $p = `r pampk_anova_p`$); most of the variance is between brains rather than within them.
+
+### All pairwise comparisons (multivariate-$t$ adjusted)
+
+Contrasts are computed on the log scale and back-transformed, so `ratio` is the
+multiplicative change in pAMPK intensity between conditions.
+
+```{r}
+#| label: pampk-contrasts
+#| code-summary: "Pairwise RNAi contrasts, back-transformed to fold-changes (multivariate-$t$ adjusted)"
+#| output: true
+
+pampk_em <- emmeans::emmeans(pampk_model, specs = ~ condition)
+
+pampk_contrast_list <- list(
+    "Complex I RNAi - Control RNAi"   = c(-1,  1,  0),
+    "Complex V RNAi - Control RNAi"   = c(-1,  0,  1),
+    "Complex I RNAi - Complex V RNAi" = c( 0,  1, -1)
+)
+
+pampk_contrast_results <- emmeans::contrast(
+    pampk_em,
+    method = pampk_contrast_list,
+    adjust = "mvt",
+    type   = "response"
+) %>%
+    summary(infer = c(TRUE, TRUE)) %>%
+    as_tibble() %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3)), sig = sig_stars(p.value))
+
+pampk_contrast_results %>%
+    sig_tbl()
+```
+
+```{r}
+#| label: pampk-contrast-stats
+#| echo: false
+#| output: false
+pampk_get <- function(a, b) {
+    pampk_contrast_results %>% filter(str_detect(contrast, fixed(a)), str_detect(contrast, fixed(b)))
+}
+pampk_ci_ctrl_ratio <- pampk_get("Complex I RNAi", "Control")$ratio
+pampk_ci_ctrl_p     <- fmt_p(pampk_get("Complex I RNAi", "Control")$p.value)
+pampk_cv_ctrl_ratio <- pampk_get("Complex V RNAi", "Control")$ratio
+pampk_cv_ctrl_p     <- fmt_p(pampk_get("Complex V RNAi", "Control")$p.value)
+pampk_ci_cv_ratio   <- pampk_get("Complex I RNAi", "Complex V")$ratio
+pampk_ci_cv_p       <- fmt_p(pampk_get("Complex I RNAi", "Complex V")$p.value)
+```
+
+Complex I RNAi reduces pAMPK relative to Control RNAi (ratio = `r pampk_ci_ctrl_ratio`, $p = `r pampk_ci_ctrl_p`$); Complex V RNAi does not differ significantly from Control RNAi (ratio = `r pampk_cv_ctrl_ratio`, $p = `r pampk_cv_ctrl_p`$). Once brain clustering is accounted for, Complex I RNAi and Complex V RNAi are no longer significantly distinguishable from each other (ratio = `r pampk_ci_cv_ratio`, $p = `r pampk_ci_cv_p`$).
+
+---
+
+## Fig S7F: SOD2 rescue experiment
+
+NSC mitotic index (% pH3⁺ among Dpn⁺) is compared in a 3 × 2
+factorial of RNAi condition (`Control`, `Complex I`, `Complex V`) × SOD2
+expression (`None`, `SOD2`), one brain per row (5–7 per cell). An interaction
+linear model is fit to the per-brain values:
+
+`Mitotic_index ~ rnai * sod2`
+
+```{r}
+#| label: sod2-load-data
+#| code-summary: "Load Fig S7F SOD2-rescue data and tabulate brains per cell"
+#| output: true
+
+sod2_df <- read_stat("fig_s07f_sod2_rescue.csv") %>%
+    filter(!is.na(value)) %>%
+    transmute(
+        Mitotic_index = value,
+        sod2 = factor(rescue_transgene, levels = c("None", "SOD2")),
+        rnai = factor(rnai,             levels = c("Control", "Complex I", "Complex V"))
+    )
+
+contrasts(sod2_df$sod2) <- contr.sum(nlevels(sod2_df$sod2))
+contrasts(sod2_df$rnai) <- contr.sum(nlevels(sod2_df$rnai))
+
+sod2_df %>%
+    count(rnai, sod2, name = "n_brains") %>%
+    minimal_tbl()
+```
+
+### Diagnostics
+
+```{r}
+#| label: sod2-lm-raw
+#| code-summary: "Fit interaction linear model (RNAi × SOD2) on per-brain mitotic index"
+
+sod2_lm_raw <- lm(Mitotic_index ~ rnai * sod2, data = sod2_df)
+summary(sod2_lm_raw)
+```
+
+::: {.callout-note appearance="simple" collapse="true"}
+## Model fit diagnostics with DHARMa
+
+Scaled residuals from 1,000 simulations are tested for uniform distribution (Kolmogorov–Smirnov), dispersion, and an excess of outliers; all three should be non-significant for a well-fitting model.
+
+```{r}
+#| label: sod2-dharma-raw
+#| code-summary: "Run DHARMa diagnostics"
+#| output: true
+#| fig-width: 8
+#| fig-height: 5
+
+sim_sod2_raw <- DHARMa::simulateResiduals(sod2_lm_raw, n = 1000, seed = DHARMA_SEED)
+plot(sim_sod2_raw)
+
+invisible(capture.output(
+    sod2_dharma_tests <- list(
+        uniformity     = DHARMa::testUniformity(sim_sod2_raw, plot = FALSE),
+        dispersion     = DHARMa::testDispersion(sim_sod2_raw, plot = FALSE),
+        outliers = DHARMa::testOutliers(sim_sod2_raw, plot = FALSE)
+    )
+))
+
+sod2_dharma_tests %>%
+    purrr::map_dfr(
+        \(t) tibble(statistic = t$statistic, p.value = t$p.value),
+        .id = "test"
+    ) %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3)), sig = sig_stars(p.value)) %>%
+    minimal_tbl()
+```
+
+:::
+
+### Global F-test
+
+Type III ANOVA on `rnai * sod2`: the two main effects and their interaction.
+
+```{r}
+#| label: sod2-anova
+#| code-summary: "Type III ANOVA (main effects and interaction)"
+#| output: true
+
+car::Anova(sod2_lm_raw, type = "III") %>%
+    as.data.frame() %>%
+    tibble::rownames_to_column("term") %>%
+    rename(df = Df, F = `F value`, p.value = `Pr(>F)`) %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3)), sig = sig_stars(p.value)) %>%
+    sig_tbl()
+```
+
+### SOD2 vs. no SOD2, within each RNAi background (multivariate-$t$ adjusted)
+
+The three within-background comparisons are taken from the full `rnai * sod2`
+estimated-marginal-means grid, with a multivariate-$t$ adjustment applied jointly
+across all three.
+
+```{r}
+#| label: sod2-contrasts
+#| code-summary: "SOD2 vs. no SOD2 within each RNAi background (multivariate-$t$ adjusted)"
+#| output: true
+
+sod2_em <- emmeans::emmeans(sod2_lm_raw, ~ rnai * sod2)
+
+sod2_contrast_list <- list(
+    "SOD2 - None | Control"   = c(-1,  0,  0,  1,  0,  0),
+    "SOD2 - None | Complex I" = c( 0, -1,  0,  0,  1,  0),
+    "SOD2 - None | Complex V" = c( 0,  0, -1,  0,  0,  1)
+)
+
+sod2_contrast_results <- emmeans::contrast(
+    sod2_em,
+    method = sod2_contrast_list,
+    adjust = "mvt"
+) %>%
+    summary(infer = c(TRUE, TRUE)) %>%
+    as_tibble() %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3)), sig = sig_stars(p.value))
+
+sod2_contrast_results %>%
+    sig_tbl()
+```
+
+---
+
+## Fig S9A: Glial OxPhos knockdown and NSC background
+
+EdU-positive progeny per NSC clone is compared across six genotypes: the two reference controls (`Luciferase X mCherry`, wild type;
+`Luciferase X ND42`, CI-dysfunction baseline) and the four combinations of NSC
+background (`mCherry` = wild type, `ND42` = CI-dysfunction) × glial knockdown
+(`ND42` or `ATPsynO`), one clone per row, with brain as the biological
+replicate.
+
+The data are fit with a factorial linear mixed-effects model:
+
+`EdU ~ nsc_background * glial_gene + (1 | brain_uid)`
+
+The `nsc_background × glial_gene` interaction tests whether the glial-knockdown
+effect depends on NSC background. Two simple-effect comparisons:
+`ND42 X ND42` vs. `mCherry X ND42` and `ND42 X ATPsynO` vs. `mCherry X ATPsynO`
+test whether NSC background changes the effect of each glial knockdown, jointly
+multivariate-$t$ adjusted.
+
+```{r}
+#| label: s8e-ox-load-data
+#| code-summary: "Load Fig S9A glial-OxPhos data and tabulate clones and brains per genotype"
+#| output: true
+
+s8e_ox_target <- c(
+    "Luciferase X mCherry", "Luciferase X ND42",
+    "mCherry X ND42", "ND42 X ND42",
+    "mCherry X ATPsynO", "ND42 X ATPsynO"
+)
+
+s8e_ox_df <- read_stat("edu_glial_screen.csv") %>%
+    filter(genotype_raw %in% s8e_ox_target, !is.na(value)) %>%
+    transmute(
+        EdU      = value,
+        Genotype = genotype_raw,
+        nsc_background = case_when(
+            genotype_raw %in% c("Luciferase X mCherry", "mCherry X ND42", "mCherry X ATPsynO") ~ "WT",
+            genotype_raw %in% c("Luciferase X ND42", "ND42 X ND42", "ND42 X ATPsynO") ~ "CI-dysfunction"
+        ),
+        glial_gene = case_when(
+            genotype_raw %in% c("Luciferase X mCherry", "Luciferase X ND42") ~ "control",
+            genotype_raw %in% c("mCherry X ND42", "ND42 X ND42") ~ "ND42",
+            genotype_raw %in% c("mCherry X ATPsynO", "ND42 X ATPsynO") ~ "ATPsynO"
+        ),
+        nsc_background = factor(nsc_background, levels = c("WT", "CI-dysfunction")),
+        glial_gene     = factor(glial_gene, levels = c("control", "ND42", "ATPsynO")),
+        brain_uid      = factor(replicate_id)
+    )
+
+stopifnot(!anyNA(s8e_ox_df$nsc_background), !anyNA(s8e_ox_df$glial_gene))
+
+s8e_ox_df %>%
+    group_by(nsc_background, glial_gene) %>%
+    summarise(
+        n_clones = n(),
+        n_brains = n_distinct(brain_uid),
+        .groups  = "drop"
+    ) %>%
+    minimal_tbl()
+```
+
+### Diagnostics
+
+```{r}
+#| label: s8e-ox-lme
+#| code-summary: "Fit clone-level linear mixed-effects model"
+
+contrasts(s8e_ox_df$nsc_background) <- contr.sum(2)
+contrasts(s8e_ox_df$glial_gene) <- contr.sum(3)
+
+s8e_ox_lme <- lmerTest::lmer(
+    EdU ~ nsc_background * glial_gene + (1 | brain_uid),
+    data = s8e_ox_df,
+    REML = TRUE
+)
+summary(s8e_ox_lme)
+```
+
+::: {.callout-note appearance="simple" collapse="true"}
+## Model fit diagnostics with DHARMa
+
+Scaled residuals from 1,000 simulations are tested for uniform distribution (Kolmogorov–Smirnov), dispersion, and an excess of outliers; all three should be non-significant for a well-fitting model.
+
+```{r}
+#| label: s8e-ox-dharma
+#| code-summary: "Run DHARMa diagnostics"
+#| output: true
+#| fig-width: 8
+#| fig-height: 5
+
+sim_s8e_ox <- DHARMa::simulateResiduals(s8e_ox_lme, n = 1000, seed = DHARMA_SEED)
+plot(sim_s8e_ox)
+
+invisible(capture.output(
+    s8e_ox_dharma_tests <- list(
+        uniformity     = DHARMa::testUniformity(sim_s8e_ox, plot = FALSE),
+        dispersion     = DHARMa::testDispersion(sim_s8e_ox, plot = FALSE),
+        outliers       = DHARMa::testOutliers(sim_s8e_ox, plot = FALSE)
+    )
+))
+
+s8e_ox_dharma_tests %>%
+    purrr::map_dfr(
+        \(t) tibble(statistic = t$statistic, p.value = t$p.value),
+        .id = "test"
+    ) %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3)), sig = sig_stars(p.value)) %>%
+    minimal_tbl()
+```
+
+:::
+
+### Global F-test
+
+Type III ANOVA (Satterthwaite degrees of freedom) on `nsc_background * glial_gene`: the two main effects and their interaction.
+
+```{r}
+#| label: s8e-ox-anova
+#| code-summary: "Type III ANOVA (main effects and interaction)"
+#| output: true
+
+s8e_ox_anova <- anova(s8e_ox_lme, type = "III", ddf = "Satterthwaite") %>%
+    as.data.frame()
+
+s8e_ox_anova %>%
+    tibble::rownames_to_column("term") %>%
+    rename(df_num = NumDF, df_den = DenDF, F = `F value`, p.value = `Pr(>F)`) %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3)), sig = sig_stars(p.value)) %>%
+    sig_tbl()
+```
+
+```{r}
+#| label: s8e-ox-anova-stats
+#| echo: false
+#| output: false
+s8e_ox_nsc_f   <- signif(s8e_ox_anova["nsc_background", "F value"], 3)
+s8e_ox_nsc_dfd <- signif(s8e_ox_anova["nsc_background", "DenDF"], 3)
+s8e_ox_nsc_p   <- fmt_p(s8e_ox_anova["nsc_background", "Pr(>F)"])
+s8e_ox_glia_f   <- signif(s8e_ox_anova["glial_gene", "F value"], 3)
+s8e_ox_glia_dfd <- signif(s8e_ox_anova["glial_gene", "DenDF"], 3)
+s8e_ox_glia_p   <- fmt_p(s8e_ox_anova["glial_gene", "Pr(>F)"])
+s8e_ox_int_f   <- signif(s8e_ox_anova["nsc_background:glial_gene", "F value"], 3)
+s8e_ox_int_dfd <- signif(s8e_ox_anova["nsc_background:glial_gene", "DenDF"], 3)
+s8e_ox_int_p   <- fmt_p(s8e_ox_anova["nsc_background:glial_gene", "Pr(>F)"])
+```
+
+Both main effects are significant: `nsc_background` ($F(1, `r s8e_ox_nsc_dfd`) = `r s8e_ox_nsc_f`$, $p = `r s8e_ox_nsc_p`$) and `glial_gene` ($F(2, `r s8e_ox_glia_dfd`) = `r s8e_ox_glia_f`$, $p = `r s8e_ox_glia_p`$), confirming that CI-dysfunction NSCs proliferate less overall and that glial OxPhos knockdown reduces proliferation overall. The interaction is not significant ($F(2, `r s8e_ox_int_dfd`) = `r s8e_ox_int_f`$, $p = `r s8e_ox_int_p`$).
+
+### NSC background within each glial knockdown (multivariate-$t$ adjusted)
+
+These test whether NSC background affects proliferation within each
+glial-knockdown condition, taken from the full `nsc_background * glial_gene`
+estimated-marginal-means grid and jointly multivariate-$t$ adjusted.
+
+```{r}
+#| label: s8e-ox-contrasts
+#| code-summary: "NSC-background simple effects within each glial knockdown (multivariate-$t$ adjusted)"
+#| output: true
+
+s8e_ox_em <- emmeans::emmeans(s8e_ox_lme, ~ nsc_background * glial_gene)
+
+s8e_ox_contrast_list <- list(
+    "ND42 X ND42 - mCherry X ND42"       = c(0, 0, -1, 1, 0, 0),
+    "ND42 X ATPsynO - mCherry X ATPsynO" = c(0, 0, 0, 0, -1, 1)
+)
+
+s8e_ox_contrast_results <- emmeans::contrast(
+    s8e_ox_em,
+    method = s8e_ox_contrast_list,
+    adjust = "mvt"
+) %>%
+    summary(infer = c(TRUE, TRUE)) %>%
+    as_tibble() %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3)), sig = sig_stars(p.value))
+
+s8e_ox_contrast_results %>%
+    sig_tbl()
+```
+
+```{r}
+#| label: s8e-ox-contrast-stats
+#| echo: false
+#| output: false
+s8e_ox_get <- function(gene) s8e_ox_contrast_results %>% filter(str_detect(contrast, fixed(gene)))
+s8e_ox_nd42_est <- s8e_ox_get("X ND42 -")$estimate
+s8e_ox_nd42_p   <- fmt_p(s8e_ox_get("X ND42 -")$p.value)
+s8e_ox_atp_est  <- s8e_ox_get("ATPsynO -")$estimate
+s8e_ox_atp_p    <- fmt_p(s8e_ox_get("ATPsynO -")$p.value)
+```
+
+Both comparisons trend in the expected direction, CI-dysfunction NSCs proliferate less than wild-type NSCs when the glia also has `ND42` (`r s8e_ox_nd42_est` EdU pp, $p = `r s8e_ox_nd42_p`$) or `ATPsynO` (`r s8e_ox_atp_est` EdU pp, $p = `r s8e_ox_atp_p`$) knocked down, but neither reaches significance.
+
+### Glial knockdown vs. pooled controls, within each NSC background (multivariate-$t$ adjusted)
+
+These compare each glial-knockdown genotype against the pooled `Luciferase`
+control *within* the matching NSC background, testing whether glial knockdown
+affects wild-type and CI-dysfunction NSCs differently. All four comparisons are
+taken from the `nsc_background * glial_gene` grid and jointly multivariate-$t$
+adjusted.
+
+```{r}
+#| label: s8e-ox-contrasts-vs-control
+#| code-summary: "Glial knockdown vs. pooled control within each NSC background (multivariate-$t$ adjusted)"
+#| output: true
+
+s8e_ox_vs_control_list <- list(
+    "mCherry X ND42 - Luciferase X mCherry"   = c(-1,  0,  1,  0,  0,  0),
+    "mCherry X ATPsynO - Luciferase X mCherry" = c(-1,  0,  0,  0,  1,  0),
+    "ND42 X ND42 - Luciferase X ND42"          = c( 0, -1,  0,  1,  0,  0),
+    "ND42 X ATPsynO - Luciferase X ND42"       = c( 0, -1,  0,  0,  0,  1)
+)
+
+s8e_ox_vs_control_results <- emmeans::contrast(
+    s8e_ox_em,
+    method = s8e_ox_vs_control_list,
+    adjust = "mvt"
+) %>%
+    summary(infer = c(TRUE, TRUE)) %>%
+    as_tibble() %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3)), sig = sig_stars(p.value))
+
+s8e_ox_vs_control_results %>%
+    sig_tbl()
+```
+
+```{r}
+#| label: s8e-ox-contrast-vs-control-stats
+#| echo: false
+#| output: false
+s8e_ox_get_vc <- function(pattern) s8e_ox_vs_control_results %>% filter(str_detect(contrast, pattern))
+s8e_ox_wt_nd42_est  <- s8e_ox_get_vc(fixed("mCherry X ND42 -"))$estimate
+s8e_ox_wt_nd42_p    <- fmt_p(s8e_ox_get_vc(fixed("mCherry X ND42 -"))$p.value)
+s8e_ox_wt_atp_est   <- s8e_ox_get_vc(fixed("mCherry X ATPsynO -"))$estimate
+s8e_ox_wt_atp_p     <- fmt_p(s8e_ox_get_vc(fixed("mCherry X ATPsynO -"))$p.value)
+s8e_ox_ci_nd42_est  <- s8e_ox_get_vc(fixed("ND42 X ND42 -"))$estimate
+s8e_ox_ci_nd42_p    <- fmt_p(s8e_ox_get_vc(fixed("ND42 X ND42 -"))$p.value)
+s8e_ox_ci_atp_est   <- s8e_ox_get_vc(fixed("ND42 X ATPsynO -"))$estimate
+s8e_ox_ci_atp_p     <- fmt_p(s8e_ox_get_vc(fixed("ND42 X ATPsynO -"))$p.value)
+```
+
+Within the wild-type NSC background, neither glial knockdown reaches
+significance relative to `Luciferase` control (`ND42`: `r s8e_ox_wt_nd42_est` EdU pp, $p = `r s8e_ox_wt_nd42_p`$; `ATPsynO`: `r s8e_ox_wt_atp_est` EdU pp, $p = `r s8e_ox_wt_atp_p`$), though the `ND42` comparison trends toward a reduction. Within the CI-dysfunction NSC background, both glial knockdowns significantly reduce proliferation relative to `Luciferase` control (`ND42`: `r s8e_ox_ci_nd42_est` EdU pp, $p = `r s8e_ox_ci_nd42_p`$; `ATPsynO`: `r s8e_ox_ci_atp_est` EdU percentage-points, $p = `r s8e_ox_ci_atp_p`$).
+
+---
+
+## Fig S9I: Glial LbNOX and CI dysfunction rescue
+
+EdU-positive progeny per NSC clone is compared across three genotypes differing
+in glial LbNOX expression and NSC metabolic state, one clone per row, with brain
+as the biological replicate. VNCs from different imaging sessions or genotypes
+are counted as distinct brains. The three genotypes are:
+
+  - `Luciferase × mCherry` ($n = 78$, 16 brains): shared WT control pool.
+  - `mCherry × Lbnox` ($n = 59$, 11 brains): glial LbNOX in a WT NSC background,
+    testing whether glial LbNOX alone affects proliferation.
+  - `LBNOX × ND42` ($n = 34$, 7 brains): glial LbNOX with CI-deficient NSCs,
+    testing whether NSC metabolic state modifies the glial LbNOX effect.
+
+All three conditions are fit in one clone-level linear mixed-effects model with
+brain as a random intercept, `EdU ~ condition + (1 | brain_uid)`.
+
+Three comparisons, specified a priori from the experimental design, are tested
+together with a joint multivariate-$t$ adjustment:
+
+1. `mCherry × Lbnox` vs `Luciferase × mCherry`: does glial LbNOX reduce WT NSC
+proliferation?
+2. `LBNOX × ND42` vs `mCherry × Lbnox`: is the LbNOX effect reversed in
+CI-deficient NSCs?
+3. `LBNOX × ND42` vs `Luciferase × mCherry`: is proliferation in CI-deficient
+NSCs with glial LbNOX restored to the WT level?
+
+```{r}
+#| label: s8j-load-data
+#| code-summary: "Load Fig S9I glial-LbNOX data and tabulate clones and brains per condition"
+#| output: true
+
+LUC_CTRL_S9I   <- "Luciferase X mCherry"
+LBNOX_CTRL_S9I <- "mCherry X Lbnox"
+LBNOX_ND42_S9I <- "LBNOX X ND42"
+
+s8j_conditions <- c(LUC_CTRL_S9I, LBNOX_CTRL_S9I, LBNOX_ND42_S9I)
+
+s8j_df <- read_stat("edu_glial_screen.csv") %>%
+    filter(!is.na(value), genotype_raw %in% s8j_conditions) %>%
+    transmute(
+        EdU       = value,
+        date      = collection_date,
+        brain_uid = replicate_id,
+        condition = factor(genotype_raw, levels = s8j_conditions)
+    )
+
+s8j_df %>%
+    group_by(condition) %>%
+    summarise(
+        n_clones = n(),
+        n_brains = n_distinct(brain_uid),
+        n_dates  = n_distinct(date),
+        .groups  = "drop"
+    ) %>%
+    minimal_tbl()
+```
+
+### Diagnostics
+
+```{r}
+#| label: s8j-lme-fit
+#| code-summary: "Fit linear mixed-effects model"
+
+s8j_model <- lmerTest::lmer(
+    EdU ~ condition + (1 | brain_uid),
+    data    = s8j_df,
+    REML    = TRUE,
+    control = lme4::lmerControl(optimizer = "bobyqa")
+)
+
+summary(s8j_model)
+```
+
+::: {.callout-note appearance="simple" collapse="true"}
+## Model fit diagnostics with DHARMa
+
+Scaled residuals from 1,000 simulations are tested for uniform distribution (Kolmogorov–Smirnov), dispersion, and an excess of outliers; all three should be non-significant for a well-fitting model.
+
+```{r}
+#| label: s8j-dharma
+#| code-summary: "Run DHARMa diagnostics"
+#| output: true
+#| fig-width: 8
+#| fig-height: 5
+
+sim_s8j <- DHARMa::simulateResiduals(s8j_model, n = 1000, seed = DHARMA_SEED)
+plot(sim_s8j)
+
+invisible(capture.output(
+    s8j_dharma_tests <- list(
+        uniformity    = DHARMa::testUniformity(sim_s8j, plot = FALSE),
+        dispersion    = DHARMa::testDispersion(sim_s8j, plot = FALSE),
+        outliers = DHARMa::testOutliers(sim_s8j, plot = FALSE)
+    )
+))
+
+s8j_dharma_tests %>%
+    purrr::map_dfr(
+        \(t) tibble(statistic = t$statistic, p.value = t$p.value),
+        .id = "test"
+    ) %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3)), sig = sig_stars(p.value)) %>%
+    minimal_tbl()
+```
+
+:::
+
+### Global F-test
+
+Type III ANOVA (Satterthwaite degrees of freedom) on the `condition` term.
+
+```{r}
+#| label: s8j-anova
+#| code-summary: "Type III ANOVA"
+#| output: true
+
+s8j_anova_res <- anova(s8j_model, type = "III", ddf = "Satterthwaite") %>%
+    as.data.frame()
+
+s8j_anova_res %>%
+    tibble::rownames_to_column("term") %>%
+    rename(df_num = NumDF, df_den = DenDF, F = `F value`, p.value = `Pr(>F)`) %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3)), sig = sig_stars(p.value)) %>%
+    sig_tbl()
+```
+
+```{r}
+#| label: s8j-anova-stats
+#| echo: false
+#| output: false
+s8j_f   <- signif(s8j_anova_res["condition", "F value"], 3)
+s8j_dfn <- s8j_anova_res["condition", "NumDF"]
+s8j_dfd <- signif(s8j_anova_res["condition", "DenDF"], 3)
+s8j_p   <- fmt_p(s8j_anova_res["condition", "Pr(>F)"])
+```
+
+The `condition` term was not significant ($F(`r s8j_dfn`, `r s8j_dfd`) = `r s8j_f`$, $p = `r s8j_p`$).
+
+### Glial LbNOX effect and proliferation restoration in CI-deficient NSCs
+
+All estimates are in EdU percentage points.
+
+```{r}
+#| label: s8j-emmeans
+#| code-summary: "Estimated marginal means per condition"
+
+s8j_em <- emmeans::emmeans(s8j_model, specs = ~ condition)
+summary(s8j_em)
+```
+
+```{r}
+#| label: s8j-contrasts
+#| code-summary: "The three LbNOX contrasts (multivariate-$t$ adjusted)"
+#| output: true
+
+s8j_contrast_list <- list(
+    "mCherry X Lbnox - Luciferase X mCherry" = c(-1,  1,  0),
+    "LBNOX X ND42 - mCherry X Lbnox"          = c( 0, -1,  1),
+    "LBNOX X ND42 - Luciferase X mCherry"     = c(-1,  0,  1)
+)
+
+s8j_contrasts_summary <- emmeans::contrast(s8j_em, method = s8j_contrast_list, adjust = "mvt") %>%
+    summary(infer = c(TRUE, TRUE)) %>%
+    as_tibble()
+
+s8j_contrasts_summary %>%
+    mutate(across(where(is.numeric), \(x) signif(x, 3)), sig = sig_stars(p.value)) %>%
+    sig_tbl()
+```
+
+```{r}
+#| label: s8j-contrast-stats
+#| echo: false
+#| output: false
+s8j_key     <- s8j_contrasts_summary %>%
+    filter(str_detect(contrast, "LBNOX X ND42 - mCherry"))
+s8j_key_est <- signif(s8j_key$estimate[1], 3)
+s8j_key_t   <- signif(s8j_key$t.ratio[1], 3)
+s8j_key_df  <- signif(s8j_key$df[1], 3)
+s8j_key_p   <- fmt_p(s8j_key$p.value[1])
+s8j_all_ns  <- all(s8j_contrasts_summary$p.value >= 0.05)
+```
+
+All three contrasts are non-significant. The key contrast (`LBNOX × ND42` − `mCherry × Lbnox`, `r s8j_key_est` EdU pp, $t(`r s8j_key_df`) = `r s8j_key_t`$, $p = `r s8j_key_p`$) is in the expected direction but does not survive multivariate-$t$ correction.
+
+---
+
+```{r}
+#| label: write-all-results
+#| echo: false
+#| output: false
+
+# Machine-readable copies of every result table in this report, written to
+# results/statistical_analysis/ (git-ignored, regenerated on each render).
+write_result(fig1b_contrast_results,            "fig_01b_results.csv")
+write_result(fig1g_anova,                       "fig_01g_anova.csv")
+write_result(fig1p_contrast_results,            "fig_01p_results.csv")
+write_result(fig1p_anova,                       "fig_01p_anova.csv")
+write_result(ucp_contrasts_summary,             "fig_03e_within_condition_results.csv")
+write_result(ucp_direct_interactions_summary,   "fig_03e_diff_in_diff_results.csv")
+write_result(lbnox_contrasts_summary,           "fig_03g_within_condition_results.csv")
+write_result(lbnox_direct_interactions_summary, "fig_03g_diff_in_diff_results.csv")
+write_result(inx2_contrast_results,             "fig_04c_results.csv")
+write_result(combined_results,                  "combined_screen_results.csv")
+write_result(phenotype_contrast_summary,        "combined_phenotype_contrast.csv")
+write_result(eaat1_left_contrast_summary,       "fig_04k_left_results.csv")
+write_result(eaat1_right_contrast_summary,      "fig_04k_right_results.csv")
+write_result(ldh_alone_summary,                 "fig_05e_ldh_alone.csv")
+write_result(ldh_worsens_summary,               "fig_05e_ldh_worsens.csv")
+write_result(ldh_rescue_vs_baseline_summary,    "fig_05e_rescue_vs_baseline.csv")
+write_result(ldh_rescue_vs_control_summary,     "fig_05e_rescue_vs_control.csv")
+write_result(s1e_contrast_results,              "fig_s01i_j_results.csv")
+write_result(pampk_contrast_results,            "fig_s07c_results.csv")
+write_result(sod2_contrast_results,             "fig_s07f_results.csv")
+write_result(s8e_ox_contrast_results,           "fig_s09a_results.csv")
+write_result(s8e_ox_vs_control_results,         "fig_s09a_vs_control_results.csv")
+write_result(s8j_contrasts_summary,             "fig_s09i_results.csv")
+```
+
+## Software and Statistical Analysis
+
+All analyses were performed in R using linear and generalized least-squares
+models (`stats::lm`, `nlme::gls`), linear mixed-effects models
+(`lme4`, `lmerTest`), estimated marginal means and multiplicity-corrected
+contrasts (`emmeans`), Type III ANOVA (`car`, `lmerTest`), and simulation-based
+residual diagnostics (`DHARMa`). Data handling used the `tidyverse`; tables and
+figures used `kableExtra` and `reactable`. The per-analysis data tables are in
+`statistical_analysis/data/`, one row per clone, brain, or cell.
+
+Reported p-values are two-sided. Small, pre-specified contrast sets use a
+multivariate-$t$ adjustment; the large glial RNAi screen uses a Benjamini-Hochberg
+FDR correction. A fixed random seed is set for the model diagnostics and for the
+multivariate-$t$ computation, so all reported values are reproducible. Complete
+package versions are given in the Session Information below.
+
+::: {.callout-note appearance="simple" collapse="true"}
+## Session Information
+
+```{r}
+#| label: session-info
+#| output: true
+#| echo: false
+
+sessionInfo()
+```
+
+:::

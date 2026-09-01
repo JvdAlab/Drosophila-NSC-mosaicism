@@ -1,0 +1,25 @@
+name: statistical_analysis
+
+channels:
+  - conda-forge
+
+dependencies:
+  - r-base=4.6.1
+  - quarto
+  # --- report modelling ---
+  - r-here
+  - r-tidyverse
+  - r-conflicted
+  - r-lme4
+  - r-lmertest
+  - r-dharma
+  - r-emmeans
+  - r-mvtnorm
+  - r-car
+  - r-nlme
+  - r-kableextra
+  - r-reactable
+  - r-htmltools
+  # --- rendering ---
+  - r-knitr
+  - r-rmarkdown

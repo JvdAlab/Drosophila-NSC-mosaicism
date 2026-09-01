@@ -1,0 +1,33 @@
+manuscript_panel,measurement,unit,value,genotype_raw,rnai,rescue_transgene,dpn_positive,ph3_positive
+Fig_S7F,NSC mitotic index,% pH3+ Dpn+ / Dpn+,22.9007634,nls-RFP; mCherry RNAi,Control,None,131,30
+Fig_S7F,NSC mitotic index,% pH3+ Dpn+ / Dpn+,30.5343511,nls-RFP; mCherry RNAi,Control,None,131,40
+Fig_S7F,NSC mitotic index,% pH3+ Dpn+ / Dpn+,30.2325581,nls-RFP; mCherry RNAi,Control,None,129,39
+Fig_S7F,NSC mitotic index,% pH3+ Dpn+ / Dpn+,30.0813008,nls-RFP; mCherry RNAi,Control,None,123,37
+Fig_S7F,NSC mitotic index,% pH3+ Dpn+ / Dpn+,24.137931,nls-RFP; mCherry RNAi,Control,None,116,28
+Fig_S7F,NSC mitotic index,% pH3+ Dpn+ / Dpn+,33.3333333,nls-RFP; mCherry RNAi,Control,None,117,39
+Fig_S7F,NSC mitotic index,% pH3+ Dpn+ / Dpn+,19.1666667,nls-RFP; mCherry RNAi,Control,None,120,23
+Fig_S7F,NSC mitotic index,% pH3+ Dpn+ / Dpn+,14.0625,UAS-SOD2; mCherry RNAi,Control,SOD2,128,18
+Fig_S7F,NSC mitotic index,% pH3+ Dpn+ / Dpn+,27.8571429,UAS-SOD2; mCherry RNAi,Control,SOD2,140,39
+Fig_S7F,NSC mitotic index,% pH3+ Dpn+ / Dpn+,23.880597,UAS-SOD2; mCherry RNAi,Control,SOD2,134,32
+Fig_S7F,NSC mitotic index,% pH3+ Dpn+ / Dpn+,11.71875,UAS-SOD2; mCherry RNAi,Control,SOD2,128,15
+Fig_S7F,NSC mitotic index,% pH3+ Dpn+ / Dpn+,29.3706294,UAS-SOD2; mCherry RNAi,Control,SOD2,143,42
+Fig_S7F,NSC mitotic index,% pH3+ Dpn+ / Dpn+,21.1382114,nls-RFP; ND75 RNAi,Complex I,None,123,26
+Fig_S7F,NSC mitotic index,% pH3+ Dpn+ / Dpn+,18.309859199999998,nls-RFP; ND75 RNAi,Complex I,None,142,26
+Fig_S7F,NSC mitotic index,% pH3+ Dpn+ / Dpn+,19.6969697,nls-RFP; ND75 RNAi,Complex I,None,132,26
+Fig_S7F,NSC mitotic index,% pH3+ Dpn+ / Dpn+,14.893617,nls-RFP; ND75 RNAi,Complex I,None,141,21
+Fig_S7F,NSC mitotic index,% pH3+ Dpn+ / Dpn+,17.1875,nls-RFP; ND75 RNAi,Complex I,None,128,22
+Fig_S7F,NSC mitotic index,% pH3+ Dpn+ / Dpn+,19.5804196,UAS-SOD2; ND75 RNAi,Complex I,SOD2,143,28
+Fig_S7F,NSC mitotic index,% pH3+ Dpn+ / Dpn+,21.3793103,UAS-SOD2; ND75 RNAi,Complex I,SOD2,145,31
+Fig_S7F,NSC mitotic index,% pH3+ Dpn+ / Dpn+,18.0555556,UAS-SOD2; ND75 RNAi,Complex I,SOD2,144,26
+Fig_S7F,NSC mitotic index,% pH3+ Dpn+ / Dpn+,13.0434783,UAS-SOD2; ND75 RNAi,Complex I,SOD2,138,18
+Fig_S7F,NSC mitotic index,% pH3+ Dpn+ / Dpn+,29.4964029,UAS-SOD2; ND75 RNAi,Complex I,SOD2,139,41
+Fig_S7F,NSC mitotic index,% pH3+ Dpn+ / Dpn+,19.1780822,nls-RFP; ATP SynO RNAi,Complex V,None,146,28
+Fig_S7F,NSC mitotic index,% pH3+ Dpn+ / Dpn+,15.4929577,nls-RFP; ATP SynO RNAi,Complex V,None,142,22
+Fig_S7F,NSC mitotic index,% pH3+ Dpn+ / Dpn+,22.5352113,nls-RFP; ATP SynO RNAi,Complex V,None,142,32
+Fig_S7F,NSC mitotic index,% pH3+ Dpn+ / Dpn+,11.6788321,nls-RFP; ATP SynO RNAi,Complex V,None,137,16
+Fig_S7F,NSC mitotic index,% pH3+ Dpn+ / Dpn+,24.3902439,nls-RFP; ATP SynO RNAi,Complex V,None,123,30
+Fig_S7F,NSC mitotic index,% pH3+ Dpn+ / Dpn+,20,UAS-SOD2; ATP SynO RNAi,Complex V,SOD2,135,27
+Fig_S7F,NSC mitotic index,% pH3+ Dpn+ / Dpn+,22.0338983,UAS-SOD2; ATP SynO RNAi,Complex V,SOD2,118,26
+Fig_S7F,NSC mitotic index,% pH3+ Dpn+ / Dpn+,16.9642857,UAS-SOD2; ATP SynO RNAi,Complex V,SOD2,112,19
+Fig_S7F,NSC mitotic index,% pH3+ Dpn+ / Dpn+,15.2542373,UAS-SOD2; ATP SynO RNAi,Complex V,SOD2,118,18
+Fig_S7F,NSC mitotic index,% pH3+ Dpn+ / Dpn+,15.7142857,UAS-SOD2; ATP SynO RNAi,Complex V,SOD2,140,22
