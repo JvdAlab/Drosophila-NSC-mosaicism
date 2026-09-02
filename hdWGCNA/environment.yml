@@ -14,3 +14,12 @@ dependencies:
   - r-seurat=5.4.0
   - r-hdwgcna=0.4.11
   - bioconductor-wgcna=1.74
+  # --- 01_GO_enrichment.R: GO enrichment + module-label derivation ---
+  - r-cowplot=1.2.0
+  - r-scales=1.4.0
+  - bioconductor-org.dm.eg.db=3.20.0
+  - bioconductor-clusterprofiler=4.14.6
+  - bioconductor-enrichplot=1.26.6
+  - bioconductor-gosemsim=2.32.0
+  - bioconductor-go.db=3.20.0
+  - bioconductor-annotationdbi=1.68.0

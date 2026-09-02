@@ -17,7 +17,7 @@ data_dir <- here::here("results", "scRNA")
 wgcna_dir <- here::here("results", "hdWGCNA")
 dir.create(wgcna_dir, showWarnings = FALSE, recursive = TRUE)
 
-# Console + file logging, mirroring the Python stages' logging setup.
+# Console + file logging
 log_file <- "00_hdWGCNA_analysis.log"
 
 logger <- function(message, ...) {
@@ -117,8 +117,9 @@ scRNA_obj <- ConstructNetwork(
     overwrite_tom = TRUE
 )
 
-# Rename the modules to a consistent scheme (NB_M1, NB_M2, ...)
-scRNA_obj <- ResetModuleNames(scRNA_obj, new_name = "NB_M")
+wgcna_name <- scRNA_obj@misc$active_wgcna
+scRNA_obj@misc[[wgcna_name]]$wgcna_net$TOMFiles <-
+    file.path(wgcna_dir, "NB_Network_TOM.rda")
 
 dendro_plot_path <- here(wgcna_dir, "NB_dendrogram.pdf")
 pdf(dendro_plot_path, width = 12, height = 8)
@@ -158,6 +159,12 @@ scRNA_obj <- ModuleConnectivity(
     group_name = "Neuroblasts",
     assay = "RNA"
 )
+
+# Rename the modules to a consistent scheme (NB_M1, NB_M2, ...). ResetModuleNames
+# renames the module factor together with the kME_/ME_ columns, so it must run
+# after ModuleConnectivity has created them (hdWGCNA >= 0.4.09 requires this
+# order; it is also the order used in the hdWGCNA tutorial).
+scRNA_obj <- ResetModuleNames(scRNA_obj, new_name = "NB_M")
 
 # Inspect module assignments
 modules <- GetModules(scRNA_obj)
