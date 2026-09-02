@@ -1,4 +1,4 @@
-manuscript_panel,measurement,unit,value,genotype_raw,rnai,panel_side,replicate_id
+manuscript_panel,measurement,unit,value,genotype,rnai,panel_side,replicate_id
 Fig_1B,Cells per NSC lineage,cells per NSC lineage,56,mCherry X TubFRTGFP,Control,left,b01
 Fig_1B,Cells per NSC lineage,cells per NSC lineage,62,mCherry X TubFRTGFP,Control,left,b01
 Fig_1B,Cells per NSC lineage,cells per NSC lineage,82,mCherry X TubFRTGFP,Control,left,b01

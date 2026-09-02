@@ -1,7 +1,8 @@
 ---
 title: "Statistical analysis for Drosophila NSC mosaicism manuscript"
 author: "Abhilesh Dhawanjewar"
-date: "`r format(Sys.time(), '%Y-%m-%d')`"
+date: "2026-08-28"
+#date: "`r format(Sys.time(), '%Y-%m-%d')`"
 format:
     html:
         code-fold: true
@@ -182,7 +183,7 @@ fig1b_df <- read_stat("fig_01b_lineage_size.csv") %>%
     filter(!is.na(value)) %>%
     transmute(
         lineage_size = value,
-        genotype     = genotype_raw,
+        genotype     = genotype,
         panel = factor(
             if_else(panel_side == "left", "Most NSCs affected", "Few NSCs affected"),
             levels = c("Most NSCs affected", "Few NSCs affected")
@@ -1143,7 +1144,7 @@ inx2_df <- read_stat("fig_04c_inx2_edu.csv") %>%
     filter(!is.na(value)) %>%
     transmute(
         EdU       = value,
-        condition = factor(genotype_raw,
+        condition = factor(genotype,
                            levels = c("Luciferase", "inx2", "inx2 (not clones)")),
         brain_uid = replicate_id
     )
@@ -1280,28 +1281,28 @@ EdU-positive progeny per NSC clone is compared across a pooled
 set of glial RNAi knockdowns (the transmembrane-transporter and
 metabolic-enzyme screens, Fig 4D and Fig 4L, plus the cortex-glia and
 glial-OxPhos screen conditions). Each knockdown is compared against the shared
-reference controls `Luciferase X mCherry` (wild-type proliferation) and
-`Luciferase X ND42` (Complex I dysfunction baseline), one clone per row.
+reference controls `mCherry x Luciferase` (wild-type proliferation) and
+`ND42 x Luciferase` (Complex I dysfunction baseline), one clone per row.
 
 Brains are the biological replicate and the model is:
 
 `EdU ~ condition + (1 | brain_uid)`
 
-Each knockdown is compared to `Luciferase X ND42`, with a Benjamini-Hochberg
+Each knockdown is compared to `ND42 x Luciferase`, with a Benjamini-Hochberg
 FDR correction applied jointly across all knockdown contrasts.
 
 ```{r}
 #| label: combined-load-data
 #| code-summary: "Load the pooled glial RNAi screen data"
 
-CTRL_COMB <- "Luciferase X mCherry"
-REF_COMB  <- "Luciferase X ND42"
+CTRL_COMB <- "mCherry x Luciferase"
+REF_COMB  <- "ND42 x Luciferase"
 
 combined_raw <- read_stat("edu_glial_screen.csv") %>%
     filter(in_combined_screen, !is.na(value)) %>%
     transmute(
         EdU         = value,
-        genotype    = genotype_raw,
+        genotype    = genotype,
         date        = collection_date,
         brain_uid   = replicate_id,
         figure      = manuscript_panel,
@@ -1473,11 +1474,11 @@ comb_fp   <- fmt_p(combined_anova_res$p.value[1])
 
 The `condition` term was highly significant ($F(`r comb_dfn`, `r comb_dfd`) = `r comb_f`$, $p = `r comb_fp`$); at least one knockdown condition differs from the CI dysfunction baseline.
 
-### Each knockdown vs. Luciferase × ND42 (joint BH-FDR)
+### Each knockdown vs. ND42 x Luciferase (joint BH-FDR)
 
 Estimates are in EdU percentage points. The phenotype contrast
-(`Luciferase X ND42` vs. `Luciferase X mCherry`) is a single comparison and is
-not corrected. Each knockdown is compared to `Luciferase X ND42`, with a
+(`ND42 x Luciferase` vs. `mCherry x Luciferase`) is a single comparison and is
+not corrected. Each knockdown is compared to `ND42 x Luciferase`, with a
 Benjamini-Hochberg FDR correction applied jointly across all `r n_screen_kds`
 knockdown contrasts.
 
@@ -1497,7 +1498,7 @@ summary(combined_emmeans)
 phenotype_contrast_comb <- emmeans::contrast(
     combined_emmeans,
     method = list(
-        "Luciferase X ND42 - Luciferase X mCherry" =
+        "ND42 x Luciferase - mCherry x Luciferase" =
             c(-1, 1, rep(0, length(screen_kds)))
     ),
     adjust = "none"
@@ -1521,11 +1522,11 @@ pheno_df  <- signif(phenotype_contrast_summary$df[1], 3)
 pheno_p   <- fmt_p(phenotype_contrast_summary$p.value[1])
 ```
 
-The CI dysfunction baseline (`Luciferase × ND42`) showed a `r abs(pheno_est)` EdU pp reduction relative to wild-type ($t(`r pheno_df`) = `r pheno_t`$, $p = `r pheno_p`$).
+The CI dysfunction baseline (`ND42 x Luciferase`) showed a `r abs(pheno_est)` EdU pp reduction relative to wild-type ($t(`r pheno_df`) = `r pheno_t`$, $p = `r pheno_p`$).
 
 ```{r}
 #| label: combined-screen-contrasts
-#| code-summary: "Each knockdown vs. Luciferase X ND42; joint Benjamini-Hochberg FDR across knockdowns"
+#| code-summary: "Each knockdown vs. ND42 x Luciferase; joint Benjamini-Hochberg FDR across knockdowns"
 #| output: true
 
 combined_em_screen <- combined_emmeans[
@@ -1658,11 +1659,11 @@ manipulate glial Eaat1 and NSC RNAi independently (two UAS-driver systems), one
 clone per row, with brain as the biological replicate. The genotypes form two
 panels:
 
-  - **Left panel (NSC control RNAi):** `Luciferase × mCherry` (NSC ctrl, glia ctrl)
-    and `Eaat1 × mCherry` (NSC ctrl, glia Eaat1 KD).
-  - **Right panel (NSC Complex I KD):** `Luciferase × ND42` (NSC ND42 KD, glia ctrl),
-    `ND42 × Eaat1 (Bloom)` (NSC ND42 KD, glia Eaat1 KD), and
-    `ND42 × Eaat1 RNAi_Eaat2GFP` (NSC ND42 KD, glia Eaat1 KD + UAS-Eaat2 rescue).
+  - **Left panel (NSC control RNAi):** `mCherry x Luciferase` (NSC ctrl, glia ctrl)
+    and `mCherry x Eaat1` (NSC ctrl, glia Eaat1 KD).
+  - **Right panel (NSC Complex I KD):** `ND42 x Luciferase` (NSC ND42 KD, glia ctrl),
+    `ND42 x Eaat1` (NSC ND42 KD, glia Eaat1 KD), and
+    `ND42 x Eaat1 RNAi_Eaat2GFP` (NSC ND42 KD, glia Eaat1 KD + UAS-Eaat2 rescue).
 
 Each panel has its own model. The left panel is fit with a clone-level linear
 mixed-effects model with brain as a random intercept,
@@ -1673,37 +1674,37 @@ giving each condition its own between-brain variance.
 
 Two comparisons, specified a priori from the experimental design, are tested:
 
-1. Eaat1 KD specificity (left panel): `Eaat1 × mCherry` vs
-`Luciferase × mCherry`: Does glial Eaat1 KD alone affect NSC proliferation?
+1. Eaat1 KD specificity (left panel): `mCherry x Eaat1` vs
+`mCherry x Luciferase`: Does glial Eaat1 KD alone affect NSC proliferation?
 1. CI dysfunction and Eaat2-GFP rescue (right panel): three related
 comparisons, tested together with a joint multiplicity adjustment:
-    - `ND42 × Eaat1 (Bloom)` vs `Luciferase × ND42`: Does Eaat1 KD worsen CI dysfunction?
-    - `ND42 × Eaat1 RNAi_Eaat2GFP` vs `ND42 × Eaat1 (Bloom)`: Does Eaat2 rescue the Eaat1 KD effect?
-    - `ND42 × Eaat1 RNAi_Eaat2GFP` vs `Luciferase × ND42`: Is proliferation restored to the CI-only level?
+    - `ND42 x Eaat1` vs `ND42 x Luciferase`: Does Eaat1 KD worsen CI dysfunction?
+    - `ND42 x Eaat1 RNAi_Eaat2GFP` vs `ND42 x Eaat1`: Does Eaat2 rescue the Eaat1 KD effect?
+    - `ND42 x Eaat1 RNAi_Eaat2GFP` vs `ND42 x Luciferase`: Is proliferation restored to the CI-only level?
 
 ```{r}
 #| label: eaat1-load-data
 #| code-summary: "Load Fig 4K Eaat1 data and tabulate clones and brains per condition"
 #| output: true
 
-LUC_CTRL_4K     <- "Luciferase X mCherry"
-EAAT1_CTRL_4K   <- "Eaat1 X mCherry"
-LUC_ND42_4K     <- "Luciferase X ND42"
-EAAT1_BLOOM_4K  <- "ND42 X Eaat1 (Bloom)"
-EAAT1_RESCUE_4K <- "ND42 X Eaat1 RNAi_Eaat2GFP"
+LUC_WT_4K     <- "mCherry x Luciferase"
+EAAT1_WT_4K   <- "mCherry x Eaat1"
+LUC_CI_4K     <- "ND42 x Luciferase"
+EAAT1_CI_4K  <- "ND42 x Eaat1"
+EAAT1_RESCUE_4K <- "ND42 x Eaat1 RNAi_Eaat2GFP"
 
-eaat1_left_conditions  <- c(LUC_CTRL_4K, EAAT1_CTRL_4K)
-eaat1_right_conditions <- c(LUC_ND42_4K, EAAT1_BLOOM_4K, EAAT1_RESCUE_4K)
+eaat1_left_conditions  <- c(LUC_WT_4K, EAAT1_WT_4K)
+eaat1_right_conditions <- c(LUC_CI_4K, EAAT1_CI_4K, EAAT1_RESCUE_4K)
 eaat1_all_conditions   <- c(eaat1_left_conditions, eaat1_right_conditions)
 
 eaat1_df <- read_stat("edu_glial_screen.csv") %>%
-    filter(!is.na(value), genotype_raw %in% eaat1_all_conditions) %>%
+    filter(!is.na(value), genotype %in% eaat1_all_conditions) %>%
     transmute(
         EdU       = value,
-        genotype  = genotype_raw,
+        genotype  = genotype,
         date      = collection_date,
         brain_uid = replicate_id,
-        condition = factor(genotype_raw, levels = eaat1_all_conditions)
+        condition = factor(genotype, levels = eaat1_all_conditions)
     )
 
 eaat1_left_df <- eaat1_df %>%
@@ -1922,7 +1923,7 @@ summary(eaat1_right_em)
 
 #### 1. Eaat1 KD alone (left panel)
 
-`Eaat1 × mCherry` vs `Luciferase × mCherry`. Single comparison, no correction.
+`mCherry x Eaat1` vs `mCherry x Luciferase`. Single comparison, no correction.
 
 ```{r}
 #| label: eaat1-contrast-left
@@ -1931,7 +1932,7 @@ summary(eaat1_right_em)
 
 eaat1_left_contrast_summary <- emmeans::contrast(
     eaat1_left_em,
-    method = list("Eaat1 X mCherry - Luciferase X mCherry" = c(-1, 1)),
+    method = list("mCherry x Eaat1 - mCherry x Luciferase" = c(-1, 1)),
     adjust = "none"
 ) %>%
     summary(infer = c(TRUE, TRUE)) %>%
@@ -1957,7 +1958,7 @@ Glial Eaat1 knockdown alone did not significantly alter NSC proliferation relati
 #### 2. CI dysfunction aggravation and Eaat2-GFP rescue (right panel)
 
 Three comparisons from the per-brain GLS, jointly multivariate-$t$ adjusted.
-The comparison between `ND42 × Eaat1 RNAi_Eaat2GFP` and `ND42 × Eaat1 (Bloom)`
+The comparison between `ND42 x Eaat1 RNAi_Eaat2GFP` and `ND42 x Eaat1`
 tests whether Eaat2-GFP rescues the glial Eaat1-knockdown effect.
 
 ```{r}
@@ -1966,9 +1967,9 @@ tests whether Eaat2-GFP rescues the glial Eaat1-knockdown effect.
 #| output: true
 
 eaat1_right_contrasts <- list(
-    "ND42 X Eaat1 (Bloom) - Luciferase X ND42"          = c(-1,  1,  0),
-    "ND42 X Eaat1 RNAi_Eaat2GFP - ND42 X Eaat1 (Bloom)" = c( 0, -1,  1),
-    "ND42 X Eaat1 RNAi_Eaat2GFP - Luciferase X ND42"    = c(-1,  0,  1)
+    "ND42 x Eaat1 - ND42 x Luciferase"                  = c(-1,  1,  0),
+    "ND42 x Eaat1 RNAi_Eaat2GFP - ND42 x Eaat1"         = c( 0, -1,  1),
+    "ND42 x Eaat1 RNAi_Eaat2GFP - ND42 x Luciferase"    = c(-1,  0,  1)
 )
 
 eaat1_right_contrast_summary <- emmeans::contrast(
@@ -2001,18 +2002,18 @@ Glial Eaat1 knockdown significantly worsened NSC proliferation in the CI dysfunc
 
 ---
 
-## Fig 5E: LDH rescue experiment
+## Fig 5E: Ldh rescue experiment
 
-EdU-positive progeny per NSC clone is compared across a glial-LDH knockdown
+EdU-positive progeny per NSC clone is compared across a glial Ldh knockdown
 series with human LDHA, human LDHB, and LbNox rescue constructs, one clone per
 row, with brain as the biological replicate. The genotypes form two
 panels:
 
-- Left panel (Control RNAi): `Luciferase × mCherry` (WT baseline) and
-`LDH x mCherry` (LDH knockdown alone).
-- Right panel (Complex I RNAi): `Luciferase × ND42` (ND42 KD alone),
-`LDH x nd42` (ND42 + LDH double KD, disease baseline), and three rescue
-constructs in the LDH + ND42 background (`ND42 X LdhA;Ldh`, `ND42 X LdhB;Ldh`, and `ND42 X LbNOX;Ldh`).
+- Left panel (Control RNAi): `mCherry x Luciferase` (WT baseline) and
+`mCherry x Ldh` (Ldh knockdown alone).
+- Right panel (Complex I RNAi): `ND42 x Luciferase` (ND42 KD alone),
+`ND42 x Ldh` (ND42 + Ldh double KD, disease baseline), and three rescue
+constructs in the Ldh + ND42 background (`ND42 x LdhA;Ldh`, `ND42 x LdhB;Ldh`, and `ND42 x LbNox;Ldh`).
 
 Each panel has its own model. The left panel is fit with a clone-level linear
 mixed-effects model with brain as a random intercept,
@@ -2021,41 +2022,41 @@ random intercept, `EdU ~ condition + (1 | date_separated) + (1 | brain_uid)`.
 
 Four comparisons, specified a priori from the experimental design, are tested:
 
-  1. LDH KD alone:`LDH x mCherry` vs `Luciferase × mCherry`: Does LDH
+  1. Ldh KD alone:`mCherry x Ldh` vs `mCherry x Luciferase`: Does Ldh
 knockdown alone affect proliferation?
-  2. LDH worsens ND42: `LDH x nd42` vs `Luciferase × ND42`: Does adding LDH
+  2. Ldh worsens ND42: `ND42 x Ldh` vs `ND42 x Luciferase`: Does adding Ldh
 knockdown to ND42 further reduce proliferation?
-  3. Rescue vs disease baseline: Each rescue construct vs `LDH x nd42`, with a
+  3. Rescue vs disease baseline: Each rescue construct vs `ND42 x Ldh`, with a
 multivariate-$t$ adjustment across the three comparisons.
-  4. Rescue to control level: Each rescue construct vs `Luciferase × ND42`,
+  4. Rescue to control level: Each rescue construct vs `ND42 x Luciferase`,
 with a multivariate-$t$ adjustment across the three comparisons: Is
 proliferation restored to the ND42-only level?
 
 ```{r}
 #| label: load-ldh-data
-#| code-summary: "Load Fig 5E LDH-rescue data and build the condition factors"
+#| code-summary: "Load Fig 5E Ldh-rescue data and build the condition factors"
 #| output: true
 
-LUC_CTRL    <- "Luciferase X mCherry"
-LDH_CTRL    <- "LDH x mCherry"
-LUC_ND42    <- "Luciferase X ND42"
-LDH_REF     <- "LDH x nd42"
-ldh_rescues <- c("ND42 X LdhA;Ldh", "ND42 X LdhB;Ldh", "ND42 X LbNOX;Ldh")
+LUC_WT  <- "mCherry x Luciferase"
+LDH_WT  <- "mCherry x Ldh"
+LUC_CI  <- "ND42 x Luciferase"
+LDH_CI  <- "ND42 x Ldh"
+ldh_rescues <- c("ND42 x LdhA;Ldh", "ND42 x LdhB;Ldh", "ND42 x LbNox;Ldh")
 
-ldh_all_conditions <- c(LUC_CTRL, LDH_CTRL, LUC_ND42, LDH_REF, ldh_rescues)
-ldh_control_rnai_conditions <- c(LUC_CTRL, LDH_CTRL)
-ldh_complex_i_rescue_conditions <- c(LUC_ND42, LDH_REF, ldh_rescues)
+ldh_all_conditions <- c(LUC_WT, LDH_WT, LUC_CI, LDH_CI, ldh_rescues)
+ldh_control_rnai_conditions <- c(LUC_WT, LDH_WT)
+ldh_complex_i_rescue_conditions <- c(LUC_CI, LDH_CI, ldh_rescues)
 
 ldh_df <- read_stat("edu_glial_screen.csv") %>%
-    filter(!is.na(value), genotype_raw %in% ldh_all_conditions) %>%
+    filter(!is.na(value), genotype %in% ldh_all_conditions) %>%
     transmute(
         EdU       = value,
-        genotype  = genotype_raw,
+        genotype  = genotype,
         date      = collection_date,
         brain_uid = replicate_id,
         date_separated = if_else(collection_date == "undated",
-                                 paste0("undated__", genotype_raw), collection_date),
-        condition = factor(genotype_raw, levels = ldh_all_conditions)
+                                 paste0("undated__", genotype), collection_date),
+        condition = factor(genotype, levels = ldh_all_conditions)
     )
 
 ldh_control_rnai_df <- ldh_df %>%
@@ -2192,7 +2193,7 @@ ldh_ci_p     <- fmt_p(ldh_anova_ci["condition",   "Pr(>F)"])
 
 The left-panel model (Control RNAi background) showed no significant condition effect ($F(`r ldh_ctrl_dfn`, `r ldh_ctrl_dfd`) = `r ldh_ctrl_f`$, $p = `r ldh_ctrl_p`$). The right-panel model (CI rescue conditions) was highly significant ($F(`r ldh_ci_dfn`, `r ldh_ci_dfd`) = `r ldh_ci_f`$, $p = `r ldh_ci_p`$).
 
-### LDH knockdown effect, Complex I aggravation, and rescue efficacy
+### Ldh knockdown effect, Complex I aggravation, and rescue efficacy
 
 All estimates are in EdU percentage points.
 
@@ -2213,18 +2214,18 @@ summary(ldh_control_rnai_em)
 summary(ldh_complex_i_rescue_em)
 ```
 
-#### 1. LDH knockdown alone (left panel)
+#### 1. Ldh knockdown alone (left panel)
 
-`LDH x mCherry` vs `Luciferase × mCherry`. Single comparison, no correction.
+`mCherry x Ldh` vs `mCherry x Luciferase`. Single comparison, no correction.
 
 ```{r}
 #| label: ldh-contrast-ldh-alone
-#| code-summary: "LDH KD vs. wild-type, left panel"
+#| code-summary: "Ldh KD vs. wild-type, left panel"
 #| output: true
 
 ldh_alone_summary <- emmeans::contrast(
     ldh_control_rnai_em,
-    method = list("LDH x mCherry - Luciferase X mCherry" = c(-1, 1)),
+    method = list("mCherry x Ldh - mCherry x Luciferase" = c(-1, 1)),
     adjust = "none"
 ) %>%
     summary(infer = c(TRUE, TRUE)) %>%
@@ -2245,20 +2246,20 @@ ldh_alone_df  <- signif(ldh_alone_summary$df[1], 3)
 ldh_alone_p   <- fmt_p(ldh_alone_summary$p.value[1])
 ```
 
-LDH knockdown alone did not significantly alter NSC proliferation relative to wild-type (`r ldh_alone_est` pp, $t(`r ldh_alone_df`) = `r ldh_alone_t`$, $p = `r ldh_alone_p`$).
+Ldh knockdown alone did not significantly alter NSC proliferation relative to wild-type (`r ldh_alone_est` pp, $t(`r ldh_alone_df`) = `r ldh_alone_t`$, $p = `r ldh_alone_p`$).
 
-#### 2. LDH KD worsens ND42 phenotype (right panel)
+#### 2. Ldh KD worsens ND42 phenotype (right panel)
 
-`LDH x nd42` vs `Luciferase × ND42`. Single comparison, no correction.
+`ND42 x Ldh` vs `ND42 x Luciferase`. Single comparison, no correction.
 
 ```{r}
 #| label: ldh-contrast-ldh-worsens
-#| code-summary: "LDH KD + CI vs. CI alone, right panel"
+#| code-summary: "Ldh KD + CI vs. CI alone, right panel"
 #| output: true
 
 ldh_worsens_summary <- emmeans::contrast(
     ldh_complex_i_rescue_em,
-    method = list("LDH x nd42 - Luciferase X ND42" = c(-1, 1, 0, 0, 0)),
+    method = list("ND42 x Ldh - ND42 x Luciferase" = c(-1, 1, 0, 0, 0)),
     adjust = "none"
 ) %>%
     summary(infer = c(TRUE, TRUE)) %>%
@@ -2279,18 +2280,18 @@ ldh_w_df  <- signif(ldh_worsens_summary$df[1], 3)
 ldh_w_p   <- fmt_p(ldh_worsens_summary$p.value[1])
 ```
 
-Combined LDH knockdown with CI dysfunction significantly reduced NSC proliferation relative to CI dysfunction alone (`r ldh_w_est` pp, $t(`r ldh_w_df`) = `r ldh_w_t`$, $p = `r ldh_w_p`$).
+Combined Ldh knockdown with CI dysfunction significantly reduced NSC proliferation relative to CI dysfunction alone (`r ldh_w_est` pp, $t(`r ldh_w_df`) = `r ldh_w_t`$, $p = `r ldh_w_p`$).
 
 #### 3. Rescue vs disease baseline
 
-Each rescue construct vs `LDH x nd42` (multivariate-$t$ adjusted across 3 comparisons).
+Each rescue construct vs `ND42 x Ldh` (multivariate-$t$ adjusted across 3 comparisons).
 
 ```{r}
 #| label: ldh-rescue-vs-baseline
-#| code-summary: "Rescue vs LDH x nd42 (multivariate-$t$ adjusted)"
+#| code-summary: "Rescue vs ND42 x Ldh (multivariate-$t$ adjusted)"
 
 ldh_em_vs_baseline <- ldh_complex_i_rescue_em[
-    match(c(LDH_REF, ldh_rescues), ldh_complex_i_rescue_em@grid$condition)
+    match(c(LDH_CI, ldh_rescues), ldh_complex_i_rescue_em@grid$condition)
 ]
 
 ldh_rescue_vs_baseline_summary <- summary(
@@ -2307,7 +2308,7 @@ ldh_rescue_vs_baseline_summary <- summary(
 ldh_rescue_vs_baseline_summary %>%
     as_tibble() %>%
     mutate(
-        contrast = str_remove(contrast, fixed(paste0(" - ", LDH_REF))),
+        contrast = str_remove(contrast, fixed(paste0(" - ", LDH_CI))),
         across(where(is.numeric), \(x) signif(x, 3)),
         sig = sig_stars(p.value)
     ) %>%
@@ -2319,27 +2320,27 @@ ldh_rescue_vs_baseline_summary %>%
 #| echo: false
 #| output: false
 ldh_vsb       <- as_tibble(ldh_rescue_vs_baseline_summary) %>%
-    mutate(gene = str_remove(contrast, fixed(paste0(" - ", LDH_REF))))
+    mutate(gene = str_remove(contrast, fixed(paste0(" - ", LDH_CI))))
 ldh_vsb_sig   <- ldh_vsb %>% filter(p.value < 0.05) %>% pull(gene)
 ldh_vsb_ns    <- ldh_vsb %>% filter(p.value >= 0.05) %>% pull(gene)
 ldh_vsb_sig_str <- if (length(ldh_vsb_sig) == 0) "None" else paste(ldh_vsb_sig, collapse = " and ")
 ldh_vsb_ns_str  <- if (length(ldh_vsb_ns)  == 0) "none" else paste(ldh_vsb_ns,  collapse = " and ")
 ```
 
-`r ldh_vsb_sig_str` significantly increased proliferation relative to the `LDH × ND42` baseline; `r ldh_vsb_ns_str` did not.
+`r ldh_vsb_sig_str` significantly increased proliferation relative to the `ND42 x Ldh` baseline; `r ldh_vsb_ns_str` did not.
 
 #### 4. Rescue to control level
 
-Each rescue construct vs `Luciferase × ND42` (multivariate-$t$ adjusted across 3 comparisons).
+Each rescue construct vs `ND42 x Luciferase` (multivariate-$t$ adjusted across 3 comparisons).
 A non-significant result indicates the condition is not detectably different from
 the ND42-only control, i.e. proliferation is restored.
 
 ```{r}
 #| label: ldh-rescue-vs-control
-#| code-summary: "Rescue vs Luciferase X ND42 (multivariate-$t$ adjusted)"
+#| code-summary: "Rescue vs ND42 x Luciferase (multivariate-$t$ adjusted)"
 
 ldh_em_vs_control <- ldh_complex_i_rescue_em[
-    match(c(LUC_ND42, ldh_rescues), ldh_complex_i_rescue_em@grid$condition)
+    match(c(LUC_CI, ldh_rescues), ldh_complex_i_rescue_em@grid$condition)
 ]
 
 ldh_rescue_vs_control_summary <- summary(
@@ -2356,7 +2357,7 @@ ldh_rescue_vs_control_summary <- summary(
 ldh_rescue_vs_control_summary %>%
     as_tibble() %>%
     mutate(
-        contrast = str_remove(contrast, fixed(paste0(" - ", LUC_ND42))),
+        contrast = str_remove(contrast, fixed(paste0(" - ", LUC_CI))),
         across(where(is.numeric), \(x) signif(x, 3)),
         sig = sig_stars(p.value)
     ) %>%
@@ -2368,14 +2369,14 @@ ldh_rescue_vs_control_summary %>%
 #| echo: false
 #| output: false
 ldh_vsc     <- as_tibble(ldh_rescue_vs_control_summary) %>%
-    mutate(gene = str_remove(contrast, fixed(paste0(" - ", LUC_ND42))))
+    mutate(gene = str_remove(contrast, fixed(paste0(" - ", LUC_CI))))
 ldh_vsc_ns  <- ldh_vsc %>% filter(p.value >= 0.05) %>% pull(gene)
 ldh_vsc_sig <- ldh_vsc %>% filter(p.value <  0.05) %>% pull(gene)
 ldh_vsc_ns_str  <- if (length(ldh_vsc_ns)  == 0) "None" else paste(ldh_vsc_ns,  collapse = " and ")
 ldh_vsc_sig_str <- if (length(ldh_vsc_sig) == 0) "none" else paste(ldh_vsc_sig, collapse = " and ")
 ```
 
-`r ldh_vsc_ns_str` remained indistinguishable from the `Luciferase × ND42` control (partial restoration); `r ldh_vsc_sig_str` was significantly below the control level.
+`r ldh_vsc_ns_str` remained indistinguishable from the `ND42 x Luciferase` control (partial restoration); `r ldh_vsc_sig_str` was significantly below the control level.
 
 ---
 
@@ -2640,7 +2641,7 @@ pampk_df <- read_stat("fig_s07c_pampk.csv") %>%
     filter(!is.na(value)) %>%
     transmute(
         normalized_intensity = value,
-        condition = factor(genotype_raw,
+        condition = factor(genotype,
                            levels = c("Control RNAi", "Complex I RNAi", "Complex V RNAi")),
         brain_uid = factor(replicate_id)
     )
@@ -2912,8 +2913,8 @@ sod2_contrast_results %>%
 
 ## Fig S9A: Glial OxPhos knockdown and NSC background
 
-EdU-positive progeny per NSC clone is compared across six genotypes: the two reference controls (`Luciferase X mCherry`, wild type;
-`Luciferase X ND42`, CI-dysfunction baseline) and the four combinations of NSC
+EdU-positive progeny per NSC clone is compared across six genotypes: the two reference controls (`mCherry x Luciferase`, wild type;
+`ND42 x Luciferase`, CI-dysfunction baseline) and the four combinations of NSC
 background (`mCherry` = wild type, `ND42` = CI-dysfunction) × glial knockdown
 (`ND42` or `ATPsynO`), one clone per row, with brain as the biological
 replicate.
@@ -2924,7 +2925,7 @@ The data are fit with a factorial linear mixed-effects model:
 
 The `nsc_background × glial_gene` interaction tests whether the glial-knockdown
 effect depends on NSC background. Two simple-effect comparisons:
-`ND42 X ND42` vs. `mCherry X ND42` and `ND42 X ATPsynO` vs. `mCherry X ATPsynO`
+`ND42 x ND42` vs. `mCherry x ND42` and `ND42 x ATPsynO` vs. `mCherry x ATPsynO`
 test whether NSC background changes the effect of each glial knockdown, jointly
 multivariate-$t$ adjusted.
 
@@ -2934,24 +2935,24 @@ multivariate-$t$ adjusted.
 #| output: true
 
 s8e_ox_target <- c(
-    "Luciferase X mCherry", "Luciferase X ND42",
-    "mCherry X ND42", "ND42 X ND42",
-    "mCherry X ATPsynO", "ND42 X ATPsynO"
+    "mCherry x Luciferase", "ND42 x Luciferase",
+    "mCherry x ND42", "ND42 x ND42",
+    "mCherry x ATPsynO", "ND42 x ATPsynO"
 )
 
 s8e_ox_df <- read_stat("edu_glial_screen.csv") %>%
-    filter(genotype_raw %in% s8e_ox_target, !is.na(value)) %>%
+    filter(genotype %in% s8e_ox_target, !is.na(value)) %>%
     transmute(
         EdU      = value,
-        Genotype = genotype_raw,
+        Genotype = genotype,
         nsc_background = case_when(
-            genotype_raw %in% c("Luciferase X mCherry", "mCherry X ND42", "mCherry X ATPsynO") ~ "WT",
-            genotype_raw %in% c("Luciferase X ND42", "ND42 X ND42", "ND42 X ATPsynO") ~ "CI-dysfunction"
+            genotype %in% c("mCherry x Luciferase", "mCherry x ND42", "mCherry x ATPsynO") ~ "WT",
+            genotype %in% c("ND42 x Luciferase", "ND42 x ND42", "ND42 x ATPsynO") ~ "CI-dysfunction"
         ),
         glial_gene = case_when(
-            genotype_raw %in% c("Luciferase X mCherry", "Luciferase X ND42") ~ "control",
-            genotype_raw %in% c("mCherry X ND42", "ND42 X ND42") ~ "ND42",
-            genotype_raw %in% c("mCherry X ATPsynO", "ND42 X ATPsynO") ~ "ATPsynO"
+            genotype %in% c("mCherry x Luciferase", "ND42 x Luciferase") ~ "control",
+            genotype %in% c("mCherry x ND42", "ND42 x ND42") ~ "ND42",
+            genotype %in% c("mCherry x ATPsynO", "ND42 x ATPsynO") ~ "ATPsynO"
         ),
         nsc_background = factor(nsc_background, levels = c("WT", "CI-dysfunction")),
         glial_gene     = factor(glial_gene, levels = c("control", "ND42", "ATPsynO")),
@@ -3071,8 +3072,8 @@ estimated-marginal-means grid and jointly multivariate-$t$ adjusted.
 s8e_ox_em <- emmeans::emmeans(s8e_ox_lme, ~ nsc_background * glial_gene)
 
 s8e_ox_contrast_list <- list(
-    "ND42 X ND42 - mCherry X ND42"       = c(0, 0, -1, 1, 0, 0),
-    "ND42 X ATPsynO - mCherry X ATPsynO" = c(0, 0, 0, 0, -1, 1)
+    "ND42 x ND42 - mCherry x ND42"       = c(0, 0, -1, 1, 0, 0),
+    "ND42 x ATPsynO - mCherry x ATPsynO" = c(0, 0, 0, 0, -1, 1)
 )
 
 s8e_ox_contrast_results <- emmeans::contrast(
@@ -3093,8 +3094,8 @@ s8e_ox_contrast_results %>%
 #| echo: false
 #| output: false
 s8e_ox_get <- function(gene) s8e_ox_contrast_results %>% filter(str_detect(contrast, fixed(gene)))
-s8e_ox_nd42_est <- s8e_ox_get("X ND42 -")$estimate
-s8e_ox_nd42_p   <- fmt_p(s8e_ox_get("X ND42 -")$p.value)
+s8e_ox_nd42_est <- s8e_ox_get("x ND42 -")$estimate
+s8e_ox_nd42_p   <- fmt_p(s8e_ox_get("x ND42 -")$p.value)
 s8e_ox_atp_est  <- s8e_ox_get("ATPsynO -")$estimate
 s8e_ox_atp_p    <- fmt_p(s8e_ox_get("ATPsynO -")$p.value)
 ```
@@ -3115,10 +3116,10 @@ adjusted.
 #| output: true
 
 s8e_ox_vs_control_list <- list(
-    "mCherry X ND42 - Luciferase X mCherry"   = c(-1,  0,  1,  0,  0,  0),
-    "mCherry X ATPsynO - Luciferase X mCherry" = c(-1,  0,  0,  0,  1,  0),
-    "ND42 X ND42 - Luciferase X ND42"          = c( 0, -1,  0,  1,  0,  0),
-    "ND42 X ATPsynO - Luciferase X ND42"       = c( 0, -1,  0,  0,  0,  1)
+    "mCherry x ND42 - mCherry x Luciferase"    = c(-1,  0,  1,  0,  0,  0),
+    "mCherry x ATPsynO - mCherry x Luciferase" = c(-1,  0,  0,  0,  1,  0),
+    "ND42 x ND42 - ND42 x Luciferase"          = c( 0, -1,  0,  1,  0,  0),
+    "ND42 x ATPsynO - ND42 x Luciferase"       = c( 0, -1,  0,  0,  0,  1)
 )
 
 s8e_ox_vs_control_results <- emmeans::contrast(
@@ -3139,14 +3140,14 @@ s8e_ox_vs_control_results %>%
 #| echo: false
 #| output: false
 s8e_ox_get_vc <- function(pattern) s8e_ox_vs_control_results %>% filter(str_detect(contrast, pattern))
-s8e_ox_wt_nd42_est  <- s8e_ox_get_vc(fixed("mCherry X ND42 -"))$estimate
-s8e_ox_wt_nd42_p    <- fmt_p(s8e_ox_get_vc(fixed("mCherry X ND42 -"))$p.value)
-s8e_ox_wt_atp_est   <- s8e_ox_get_vc(fixed("mCherry X ATPsynO -"))$estimate
-s8e_ox_wt_atp_p     <- fmt_p(s8e_ox_get_vc(fixed("mCherry X ATPsynO -"))$p.value)
-s8e_ox_ci_nd42_est  <- s8e_ox_get_vc(fixed("ND42 X ND42 -"))$estimate
-s8e_ox_ci_nd42_p    <- fmt_p(s8e_ox_get_vc(fixed("ND42 X ND42 -"))$p.value)
-s8e_ox_ci_atp_est   <- s8e_ox_get_vc(fixed("ND42 X ATPsynO -"))$estimate
-s8e_ox_ci_atp_p     <- fmt_p(s8e_ox_get_vc(fixed("ND42 X ATPsynO -"))$p.value)
+s8e_ox_wt_nd42_est  <- s8e_ox_get_vc(fixed("mCherry x ND42 -"))$estimate
+s8e_ox_wt_nd42_p    <- fmt_p(s8e_ox_get_vc(fixed("mCherry x ND42 -"))$p.value)
+s8e_ox_wt_atp_est   <- s8e_ox_get_vc(fixed("mCherry x ATPsynO -"))$estimate
+s8e_ox_wt_atp_p     <- fmt_p(s8e_ox_get_vc(fixed("mCherry x ATPsynO -"))$p.value)
+s8e_ox_ci_nd42_est  <- s8e_ox_get_vc(fixed("ND42 x ND42 -"))$estimate
+s8e_ox_ci_nd42_p    <- fmt_p(s8e_ox_get_vc(fixed("ND42 x ND42 -"))$p.value)
+s8e_ox_ci_atp_est   <- s8e_ox_get_vc(fixed("ND42 x ATPsynO -"))$estimate
+s8e_ox_ci_atp_p     <- fmt_p(s8e_ox_get_vc(fixed("ND42 x ATPsynO -"))$p.value)
 ```
 
 Within the wild-type NSC background, neither glial knockdown reaches
@@ -3154,18 +3155,18 @@ significance relative to `Luciferase` control (`ND42`: `r s8e_ox_wt_nd42_est` Ed
 
 ---
 
-## Fig S9I: Glial LbNOX and CI dysfunction rescue
+## Fig S9I: Glial LbNox and CI dysfunction rescue
 
 EdU-positive progeny per NSC clone is compared across three genotypes differing
-in glial LbNOX expression and NSC metabolic state, one clone per row, with brain
+in glial LbNox expression and NSC metabolic state, one clone per row, with brain
 as the biological replicate. VNCs from different imaging sessions or genotypes
 are counted as distinct brains. The three genotypes are:
 
-  - `Luciferase × mCherry` ($n = 78$, 16 brains): shared WT control pool.
-  - `mCherry × Lbnox` ($n = 59$, 11 brains): glial LbNOX in a WT NSC background,
-    testing whether glial LbNOX alone affects proliferation.
-  - `LBNOX × ND42` ($n = 34$, 7 brains): glial LbNOX with CI-deficient NSCs,
-    testing whether NSC metabolic state modifies the glial LbNOX effect.
+  - `mCherry x Luciferase` ($n = 78$, 16 brains): shared WT control pool.
+  - `mCherry x LbNox` ($n = 59$, 11 brains): glial LbNox in a WT NSC background,
+    testing whether glial LbNox alone affects proliferation.
+  - `ND42 x LbNox` ($n = 34$, 7 brains): glial LbNox with CI-deficient NSCs,
+    testing whether NSC metabolic state modifies the glial LbNox effect.
 
 All three conditions are fit in one clone-level linear mixed-effects model with
 brain as a random intercept, `EdU ~ condition + (1 | brain_uid)`.
@@ -3173,31 +3174,31 @@ brain as a random intercept, `EdU ~ condition + (1 | brain_uid)`.
 Three comparisons, specified a priori from the experimental design, are tested
 together with a joint multivariate-$t$ adjustment:
 
-1. `mCherry × Lbnox` vs `Luciferase × mCherry`: does glial LbNOX reduce WT NSC
+1. `mCherry x LbNox` vs `mCherry x Luciferase`: does glial LbNox reduce WT NSC
 proliferation?
-2. `LBNOX × ND42` vs `mCherry × Lbnox`: is the LbNOX effect reversed in
+2. `ND42 x LbNox` vs `mCherry x LbNox`: is the LbNox effect reversed in
 CI-deficient NSCs?
-3. `LBNOX × ND42` vs `Luciferase × mCherry`: is proliferation in CI-deficient
-NSCs with glial LbNOX restored to the WT level?
+3. `ND42 x LbNox` vs `mCherry x Luciferase`: is proliferation in CI-deficient
+NSCs with glial LbNox restored to the WT level?
 
 ```{r}
 #| label: s8j-load-data
-#| code-summary: "Load Fig S9I glial-LbNOX data and tabulate clones and brains per condition"
+#| code-summary: "Load Fig S9I glial-LbNox data and tabulate clones and brains per condition"
 #| output: true
 
-LUC_CTRL_S9I   <- "Luciferase X mCherry"
-LBNOX_CTRL_S9I <- "mCherry X Lbnox"
-LBNOX_ND42_S9I <- "LBNOX X ND42"
+LUC_WT_S9I   <- "mCherry x Luciferase"
+LBNOX_WT_S9I <- "mCherry x LbNox"
+LBNOX_CI_S9I <- "ND42 x LbNox"
 
-s8j_conditions <- c(LUC_CTRL_S9I, LBNOX_CTRL_S9I, LBNOX_ND42_S9I)
+s8j_conditions <- c(LUC_WT_S9I, LBNOX_WT_S9I, LBNOX_CI_S9I)
 
 s8j_df <- read_stat("edu_glial_screen.csv") %>%
-    filter(!is.na(value), genotype_raw %in% s8j_conditions) %>%
+    filter(!is.na(value), genotype %in% s8j_conditions) %>%
     transmute(
         EdU       = value,
         date      = collection_date,
         brain_uid = replicate_id,
-        condition = factor(genotype_raw, levels = s8j_conditions)
+        condition = factor(genotype, levels = s8j_conditions)
     )
 
 s8j_df %>%
@@ -3292,7 +3293,7 @@ s8j_p   <- fmt_p(s8j_anova_res["condition", "Pr(>F)"])
 
 The `condition` term was not significant ($F(`r s8j_dfn`, `r s8j_dfd`) = `r s8j_f`$, $p = `r s8j_p`$).
 
-### Glial LbNOX effect and proliferation restoration in CI-deficient NSCs
+### Glial LbNox effect and proliferation restoration in CI-deficient NSCs
 
 All estimates are in EdU percentage points.
 
@@ -3306,13 +3307,13 @@ summary(s8j_em)
 
 ```{r}
 #| label: s8j-contrasts
-#| code-summary: "The three LbNOX contrasts (multivariate-$t$ adjusted)"
+#| code-summary: "The three LbNox contrasts (multivariate-$t$ adjusted)"
 #| output: true
 
 s8j_contrast_list <- list(
-    "mCherry X Lbnox - Luciferase X mCherry" = c(-1,  1,  0),
-    "LBNOX X ND42 - mCherry X Lbnox"          = c( 0, -1,  1),
-    "LBNOX X ND42 - Luciferase X mCherry"     = c(-1,  0,  1)
+    "mCherry x LbNox - mCherry x Luciferase" = c(-1,  1,  0),
+    "ND42 x LbNox - mCherry x LbNox"          = c( 0, -1,  1),
+    "ND42 x LbNox - mCherry x Luciferase"     = c(-1,  0,  1)
 )
 
 s8j_contrasts_summary <- emmeans::contrast(s8j_em, method = s8j_contrast_list, adjust = "mvt") %>%
@@ -3329,7 +3330,7 @@ s8j_contrasts_summary %>%
 #| echo: false
 #| output: false
 s8j_key     <- s8j_contrasts_summary %>%
-    filter(str_detect(contrast, "LBNOX X ND42 - mCherry"))
+    filter(str_detect(contrast, "ND42 x LbNox - mCherry x LbNox"))
 s8j_key_est <- signif(s8j_key$estimate[1], 3)
 s8j_key_t   <- signif(s8j_key$t.ratio[1], 3)
 s8j_key_df  <- signif(s8j_key$df[1], 3)
@@ -3337,7 +3338,7 @@ s8j_key_p   <- fmt_p(s8j_key$p.value[1])
 s8j_all_ns  <- all(s8j_contrasts_summary$p.value >= 0.05)
 ```
 
-All three contrasts are non-significant. The key contrast (`LBNOX × ND42` − `mCherry × Lbnox`, `r s8j_key_est` EdU pp, $t(`r s8j_key_df`) = `r s8j_key_t`$, $p = `r s8j_key_p`$) is in the expected direction but does not survive multivariate-$t$ correction.
+All three contrasts are non-significant. The key contrast (`ND42 x LbNox` − `mCherry x LbNox`, `r s8j_key_est` EdU pp, $t(`r s8j_key_df`) = `r s8j_key_t`$, $p = `r s8j_key_p`$) is in the expected direction but does not survive multivariate-$t$ correction.
 
 ---
 

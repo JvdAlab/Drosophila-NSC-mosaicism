@@ -1,4 +1,4 @@
-manuscript_panel,measurement,unit,value,genotype_raw,mito_type,mtdna_background,replicate_id
+manuscript_panel,measurement,unit,value,genotype,mito_type,mtdna_background,replicate_id
 Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,6,TubFRT-UASMitoGFP Het,MitoGFP,Heteroplasmic,b01
 Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,7,TubFRT-UASMitoGFP Het,MitoGFP,Heteroplasmic,b02
 Fig_1P,EdU-positive cells per NSC clone,EdU+ cells per clone,6,TubFRT-UASMitoGFP Het,MitoGFP,Heteroplasmic,b03

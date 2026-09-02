@@ -1,4 +1,4 @@
-manuscript_panel,measurement,unit,value,genotype_raw,rnai,panel_side,replicate_id
+manuscript_panel,measurement,unit,value,genotype,rnai,panel_side,replicate_id
 Fig_S1I-J,EdU-positive cells per NSC clone,EdU+ cells per clone,10,mCherry XTubFRTGFP,Control,left,b01
 Fig_S1I-J,EdU-positive cells per NSC clone,EdU+ cells per clone,13,mCherry XTubFRTGFP,Control,left,b01
 Fig_S1I-J,EdU-positive cells per NSC clone,EdU+ cells per clone,12,mCherry XTubFRTGFP,Control,left,b01

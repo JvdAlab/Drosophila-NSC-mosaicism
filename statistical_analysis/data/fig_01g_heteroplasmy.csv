@@ -1,4 +1,4 @@
-manuscript_panel,measurement,unit,value,heteroplasmy_pct,heteroplasmy_fraction,d_mel,d_yak,genotype_raw,brain_label
+manuscript_panel,measurement,unit,value,heteroplasmy_pct,heteroplasmy_fraction,d_mel,d_yak,genotype,brain_label
 Fig_1G,EdU-positive progeny per neuroblast,EdU+ progeny per neuroblast,4,48.27586206896552,0.4827586206896552,14,15,(heteroplasmic; implicit),B1
 Fig_1G,EdU-positive progeny per neuroblast,EdU+ progeny per neuroblast,4,55.55555555555556,0.5555555555555556,15,12,(heteroplasmic; implicit),B1
 Fig_1G,EdU-positive progeny per neuroblast,EdU+ progeny per neuroblast,7,56.666666666666664,0.5666666666666667,17,13,(heteroplasmic; implicit),B1

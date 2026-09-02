@@ -1,4 +1,4 @@
-manuscript_panel,measurement,unit,value,genotype_raw,rnai,replicate_id
+manuscript_panel,measurement,unit,value,genotype,rnai,replicate_id
 Fig_S7C,Normalized pAMPK intensity per NSC,normalized intensity (a.u.),1.4261916256077278,Control RNAi,Control,b01
 Fig_S7C,Normalized pAMPK intensity per NSC,normalized intensity (a.u.),1.4214826377559129,Control RNAi,Control,b01
 Fig_S7C,Normalized pAMPK intensity per NSC,normalized intensity (a.u.),1.4938905043127133,Control RNAi,Control,b01

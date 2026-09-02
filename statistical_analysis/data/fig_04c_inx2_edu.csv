@@ -1,4 +1,4 @@
-manuscript_panel,measurement,unit,value,genotype_raw,glial_gene,replicate_id
+manuscript_panel,measurement,unit,value,genotype,glial_gene,replicate_id
 Fig_4C,EdU-positive cells per NSC clone,EdU+ cells per clone,7,Luciferase,control,b01
 Fig_4C,EdU-positive cells per NSC clone,EdU+ cells per clone,7,Luciferase,control,b01
 Fig_4C,EdU-positive cells per NSC clone,EdU+ cells per clone,3,Luciferase,control,b01

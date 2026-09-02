@@ -1,4 +1,4 @@
-manuscript_panel,measurement,unit,value,genotype_raw,rnai,rescue_transgene,dpn_positive,ph3_positive
+manuscript_panel,measurement,unit,value,genotype,rnai,rescue_transgene,dpn_positive,ph3_positive
 Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,27.86885246,mCherry RNAi,Control,None,122,34
 Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,28.24427481,mCherry RNAi,Control,None,131,37
 Fig_3G,NSC mitotic index,% pH3+ Dpn+ / Dpn+,24.46808511,mCherry RNAi,Control,None,94,23

@@ -30,8 +30,8 @@ genotype.
 | `manuscript_panel` | manuscript figure panel the row belongs to |
 | `measurement`, `unit` | what `value` is, and its unit |
 | `value` | the measured response modelled in the report |
-| `genotype_raw` | full genotype label as scored |
-| `rnai` | NSC RNAi condition / background (`Control`, `Complex I`, `Complex V`, `LDH`, `Eaat1`, …) |
+| `genotype` | full genotype label; the glial screen (`edu_glial_screen.csv`) uses a `<NSC background> x <glial transgene>` convention |
+| `rnai` | NSC RNAi condition / background (`Control`, `Complex I`, `Complex V`) |
 | `rescue_transgene` | rescue construct (`GFP`/`UCP1`/`UCP2`; `None`/`SOD2`; `nlsLbNox`/`mitoLbNox`; …) |
 | `panel_side` | mosaic system: `left` = most NSCs affected, `right` = few NSCs affected |
 | `screen_type` | `control` / `transporter` / `enzyme` / … (glial screen only) |
