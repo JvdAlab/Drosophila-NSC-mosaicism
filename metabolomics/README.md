@@ -13,15 +13,20 @@ classes as the sets.
   peak areas normalized to the internal standard (D6-Glutaric Acid) and
   total-sum normalized upstream
 
-**Output** (`results/metabolomics/`):
-- `metabolomics_differential_abundance_results.csv`: per-metabolite `limma`
+**Output:**
+- [`data/processed/`](./data/processed/) (committed — read as an input by
+  [`../reports/plot_manuscript_figures.qmd`](../reports/plot_manuscript_figures.qmd)):
+  `metabolomics_differential_abundance_results.csv` (per-metabolite `limma`
   table: log2 fold change, moderated *t*, raw and BH-adjusted *p*, per-group
-  mean abundance, and metabolite class
-- `metabolomics_fgsea_results.csv`: per-class `fgsea` enrichment: ES, NES,
-  *p*, BH `padj`, leading-edge metabolites, and direction
-- `metabolomics_count_matrix.rds`, `metabolomics_log2_count_matrix.rds`,
-  `metabolomics_meta_info.rds`: intermediate matrices reused by
+  mean abundance, and metabolite class) and `metabolomics_fgsea_results.csv`
+  (per-class `fgsea` enrichment: ES, NES, *p*, BH `padj`, leading-edge
+  metabolites, and direction)
+- `results/metabolomics/` (git-ignored, regenerated each run):
+  `metabolomics_count_matrix.rds`, `metabolomics_log2_count_matrix.rds`,
+  `metabolomics_meta_info.rds` — intermediate matrices, staged manually into
+  `reports/data/metabolomics/` when rendering
   [`../reports/plot_manuscript_figures.qmd`](../reports/plot_manuscript_figures.qmd)
+  locally
 
 ---
 
@@ -50,12 +55,15 @@ Rscript metabolomics/01_pathway_enrichment.R
 
 ## Pipeline Scripts
 
-All outputs are written under `results/metabolomics/`.
+`metabolomics_differential_abundance_results.csv` and
+`metabolomics_fgsea_results.csv` are written to (and read from)
+`data/processed/`, which is committed. Everything else is written to
+`results/metabolomics/`, which is git-ignored.
 
 | Stage | Script | Input | Outputs |
 |:---|:---|:---|:---|
-| 00: Differential abundance | [`00_differential_abundance.R`](./00_differential_abundance.R) | `data/raw/metabolite_abundances_normalized.xlsx` | `metabolomics_differential_abundance_results.csv`<br>`metabolomics_count_matrix.rds`<br>`metabolomics_log2_count_matrix.rds`<br>`metabolomics_meta_info.rds` |
-| 01: Pathway enrichment | [`01_pathway_enrichment.R`](./01_pathway_enrichment.R) | `metabolomics_differential_abundance_results.csv` | `metabolomics_fgsea_results.csv` |
+| 00: Differential abundance | [`00_differential_abundance.R`](./00_differential_abundance.R) | `data/raw/metabolite_abundances_normalized.xlsx` | `data/processed/metabolomics_differential_abundance_results.csv`<br>`results/metabolomics/metabolomics_count_matrix.rds`<br>`results/metabolomics/metabolomics_log2_count_matrix.rds`<br>`results/metabolomics/metabolomics_meta_info.rds` |
+| 01: Pathway enrichment | [`01_pathway_enrichment.R`](./01_pathway_enrichment.R) | `data/processed/metabolomics_differential_abundance_results.csv` | `data/processed/metabolomics_fgsea_results.csv` |
 
 ---
 
@@ -96,17 +104,21 @@ the R 4.4.3 / Bioconductor 3.20 stack shared with the other R modules.
 
 ## Expected Output
 
-`results/metabolomics/`:
+`data/processed/` (committed):
 
 **Differential abundance (stage 00)**
 - `metabolomics_differential_abundance_results.csv` — one row per metabolite
   (`gene`): `logFC`, `AveExpr`, `t`, `P.Value`, `adj.P.Val`, `B`, `Pathway`,
   `avg_control`, `avg_condition`
-- `metabolomics_count_matrix.rds`, `metabolomics_log2_count_matrix.rds` —
-  metabolite × sample abundance matrices (raw and log2)
-- `metabolomics_meta_info.rds` — metabolite-to-class table
 
 **Enrichment (stage 01)**
 - `metabolomics_fgsea_results.csv` — one row per metabolite class: `pathway`,
   `pval`, `padj`, `log2err`, `ES`, `NES`, `size`, `leadingEdge` (`;`-joined),
   `direction`, `neg_log10_p`
+
+`results/metabolomics/` (git-ignored, regenerated each run):
+
+**Differential abundance (stage 00)**
+- `metabolomics_count_matrix.rds`, `metabolomics_log2_count_matrix.rds` —
+  metabolite × sample abundance matrices (raw and log2)
+- `metabolomics_meta_info.rds` — metabolite-to-class table

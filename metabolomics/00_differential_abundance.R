@@ -25,6 +25,9 @@ input_path <- here::here(
 output_dir <- here::here("results", "metabolomics")
 dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 
+processed_dir <- here::here("metabolomics", "data", "processed")
+dir.create(processed_dir, showWarnings = FALSE, recursive = TRUE)
+
 if (!file.exists(input_path)) {
     stop(sprintf(
         "%s not found. See metabolomics/data/raw/README.md.",
@@ -88,13 +91,14 @@ res_df <- res_df %>%
 # ---- Save ----
 write_csv(
     res_df,
-    file.path(output_dir, "metabolomics_differential_abundance_results.csv")
+    file.path(processed_dir, "metabolomics_differential_abundance_results.csv")
 )
 
 saveRDS(count_mat, file.path(output_dir, "metabolomics_count_matrix.rds"))
 saveRDS(meta_info, file.path(output_dir, "metabolomics_meta_info.rds"))
 saveRDS(log_mat, file.path(output_dir, "metabolomics_log2_count_matrix.rds"))
 
-logger("Wrote differential abundance results and matrix objects to %s", output_dir)
+logger("Wrote differential abundance results to %s", processed_dir)
+logger("Wrote intermediate matrix objects to %s", output_dir)
 logger("Top metabolites by P-value:")
 print(res_df %>% arrange(P.Value) %>% head())

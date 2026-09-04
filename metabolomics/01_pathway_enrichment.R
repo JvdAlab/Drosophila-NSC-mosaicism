@@ -2,7 +2,7 @@
 #
 # Metabolite-set enrichment on the per-metabolite differential abundance
 # ranking, with metabolite classes as the gene sets. Ranking metric is the
-# signed -log10(P-value); enrichment is fgsea (fixed seed 42).
+# signed -log10(P-value); enrichment is fgsea.
 
 library(here)
 library(tidyverse)
@@ -16,8 +16,9 @@ logger <- function(message, ...) {
     cat(line, file = log_file, append = TRUE)
 }
 
-output_dir <- here::here("results", "metabolomics")
-input_path <- file.path(output_dir, "metabolomics_differential_abundance_results.csv")
+processed_dir <- here::here("metabolomics", "data", "processed")
+dir.create(processed_dir, showWarnings = FALSE, recursive = TRUE)
+input_path <- file.path(processed_dir, "metabolomics_differential_abundance_results.csv")
 
 if (!file.exists(input_path)) {
     stop(sprintf(
@@ -29,7 +30,6 @@ if (!file.exists(input_path)) {
 res_df <- read_csv(input_path, show_col_types = FALSE)
 
 run_msea <- function(res_df) {
-
     # Create ranked list
     res_df <- res_df %>%
         filter(!is.na(Pathway), Pathway != "Internal Std") %>%
@@ -66,8 +66,10 @@ msea_results <- run_msea(res_df)
 msea_results <- msea_results %>%
     mutate(leadingEdge = sapply(leadingEdge, paste, collapse = ";"))
 
-write_csv(msea_results, file.path(output_dir, "metabolomics_fgsea_results.csv"))
+write_csv(msea_results, file.path(processed_dir, "metabolomics_fgsea_results.csv"))
 
-logger("Wrote %d pathways to %s", nrow(msea_results),
-       file.path(output_dir, "metabolomics_fgsea_results.csv"))
+logger(
+    "Wrote %d pathways to %s", nrow(msea_results),
+    file.path(processed_dir, "metabolomics_fgsea_results.csv")
+)
 print(msea_results %>% select(pathway, ES, NES, pval, padj, size))
