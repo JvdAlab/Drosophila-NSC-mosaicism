@@ -10,10 +10,13 @@ and its hub genes.
 - `results/scRNA/scRNA_data_QC_filtered_w_scVI_latent_annotated_seurat.rds`
   (annotated Seurat object, produced by
   [`scRNA_pipeline/06_convert_adata_to_seurat.R`](../scRNA_pipeline/06_convert_adata_to_seurat.R)).
+- [`resources/hdWGCNA_module_manuscript_labels.csv`](./resources/hdWGCNA_module_manuscript_labels.csv)
+  (committed, hand-curated — used by stage 01 only as an optional cross-check
+  against the frozen `module_labels` vector; see Analysis Details).
 
 **Output:**
 - The hdWGCNA network object plus derived tables, gene lists, and plots, all
-  under `results/hdWGCNA/` (see
+  under `results/hdWGCNA/` (git-ignored, regenerated each run; see
   [Expected Output](#expected-output)).
 
 ---
@@ -65,7 +68,7 @@ All outputs are written under `results/hdWGCNA/`.
 - **Condition variable:** binary `ND75_KD` derived from `condition == "ND75-KD"` — an ND-75 knockdown vs. Control comparison
 - **Trait correlation:** calculated within Neuroblasts; genes from modules with FDR < 0.05 are written to a combined candidate-gene list (`ND75_KD_associated_genes_for_SCENIC_with_condition.txt`)
 - **GO enrichment (stage 01):** top 50 hub genes/module by kME; background universe = all non-grey module genes; `clusterProfiler::enrichGO` with `pAdjustMethod = "BH"`, `maxGSSize = 500`; ontology-specific thresholds — BP `p < 0.05, q < 0.20, minGSSize = 5`, MF/CC `p < 0.10, q < 0.30, minGSSize = 3`; redundant terms collapsed with Wang semantic similarity (`clusterProfiler::simplify` cutoff 0.85 BP, 0.90 MF/CC). BP/MF/CC are all computed and saved (`GO_objects/*_simplified.rds`); the composite panel's treeplot row (Supp Fig 5D) renders **BP** only (Supp Fig 5C).
-- **Module labels:** `NB_M10` is labelled from hub-gene identity (mtDNA-encoded); the other ten `NB_M*` labels are frozen in the `module_labels` vector in `01_GO_enrichment.R` (assigned from the top non-generic enriched terms, refined by hand against the GO treeplot hierarchies) and cross-checked against `hdWGCNA_module_manuscript_labels.csv` (`label_source = figure_2E`). Per-cluster treeplot tip labels are shortened by the frozen `consensus_term_overrides` map.
+- **Module labels:** `NB_M10` is labelled from hub-gene identity (mtDNA-encoded); the other ten `NB_M*` labels are frozen in the `module_labels` vector in `01_GO_enrichment.R` (assigned from the top non-generic enriched terms, refined by hand against the GO treeplot hierarchies) and cross-checked against [`resources/hdWGCNA_module_manuscript_labels.csv`](./resources/hdWGCNA_module_manuscript_labels.csv) (`label_source = figure_2E`). Per-cluster treeplot tip labels are shortened by the frozen `consensus_term_overrides` map.
 
 ---
 

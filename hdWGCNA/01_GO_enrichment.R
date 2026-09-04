@@ -433,8 +433,8 @@ consensus_label_resolved <- tibble::tibble(
 # These are assigned from the top non-generic enriched terms and
 # refined manually against the GO treeplot hierarchies, not recomputed here.
 # This vector is the authoritative copy;
-# results/hdWGCNA/hdWGCNA_module_manuscript_labels.csv holds the same content in
-# table form (label_source = figure_2E).
+# hdWGCNA/resources/hdWGCNA_module_manuscript_labels.csv holds the same
+# content in table form (label_source = figure_2E).
 
 module_labels <- c(
     NB_M1  = "Mitochondrial ATP synthesis",
@@ -455,7 +455,7 @@ if (!setequal(names(module_labels), all_modules)) {
 }
 
 # Cross-check, if present.
-manuscript_labels_csv <- file.path(wgcna_dir, "hdWGCNA_module_manuscript_labels.csv")
+manuscript_labels_csv <- here::here("hdWGCNA", "resources", "hdWGCNA_module_manuscript_labels.csv")
 if (file.exists(manuscript_labels_csv)) {
     csv_labels <- read_csv(manuscript_labels_csv, show_col_types = FALSE)
     cmp <- tibble(module = names(module_labels), in_script = unname(module_labels)) %>%

@@ -1,0 +1,12 @@
+module,label,label_source
+NB_M1,Mitochondrial ATP synthesis,figure_2E
+NB_M2,Protein degradation & Chromatin,figure_2E
+NB_M3,Cytoplasmic translation,figure_2E
+NB_M4,Synaptic signalling & Ion transport,figure_2E
+NB_M5,Chromatin remodelling & Gene silencing,figure_2E
+NB_M6,Transcriptional repression,figure_2E
+NB_M7,Stress response & Growth signalling,figure_2E
+NB_M8,Epigenetic silencing & Chromatin,figure_2E
+NB_M9,Mitochondrial biogenesis & NAD/carbohydrate metabolism,figure_2E
+NB_M10,Mitochondrial OxPhos core subunits,figure_2E
+NB_M11,Ribosome biogenesis & Protein folding,figure_2E
