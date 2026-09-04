@@ -1,1 +1,3 @@
-/target/
+/target/*
+!/target/Deadpanorama-0.10.2.jar
+!/target/Deadpanorama-0.10.2-sources.jar
