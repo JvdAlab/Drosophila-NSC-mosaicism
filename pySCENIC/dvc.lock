@@ -67,8 +67,8 @@ stages:
     deps:
     - path: pySCENIC/02_pyscenic_ctx_pruning.py
       hash: md5
-      md5: 6ebdf9a965f9ebf73d6ba3043ecc069b
-      size: 6489
+      md5: dc427f5afd03f89c9a27ed9553da26db
+      size: 6566
     - path: pySCENIC/pyscenic_config.yaml
       hash: md5
       md5: 6ff189900f432881a3564171eda5ae01

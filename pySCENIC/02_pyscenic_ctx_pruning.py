@@ -40,6 +40,7 @@ def run_ctx_pruning(
     ranking_db_path,
     motif_annotations_path,
     config,
+    shared_params,
     num_workers=16,
     out_motifs_path=None,
     out_regulons_path=None,
@@ -101,8 +102,8 @@ def run_ctx_pruning(
         motif_annotations_path,
         rank_threshold=config["rank_threshold"],
         nes_threshold=config["nes_threshold"],
-        motif_similarity_fdr=shared["motif_similarity_fdr"],
-        auc_threshold=shared["auc_threshold"],
+        motif_similarity_fdr=shared_params["motif_similarity_fdr"],
+        auc_threshold=shared_params["auc_threshold"],
         num_workers=num_workers,
         weighted_recovery=False,
         filter_for_annotation=False,
@@ -196,6 +197,7 @@ if __name__ == "__main__":
         Path(p["res_dir"]) / p["ranking_db"],
         Path(p["res_dir"]) / p["motif_annotations"],
         config=run_cfg,
+        shared_params=cfg["shared_params"],
         num_workers=cfg["shared_params"]["num_workers"],
     )
 
