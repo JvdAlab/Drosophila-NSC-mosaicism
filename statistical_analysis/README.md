@@ -33,6 +33,38 @@ quarto render statistical_analysis/statistical_analysis.qmd
 Reads `data/*.csv`; writes result tables to `results/statistical_analysis/`
 (git-ignored, regenerated each render) and the self-contained `.html`.
 
+### Result tables
+
+Machine-readable copies of every result table, written at render time by the
+`write-all-results` chunk. Values are the raw model outputs (not the
+rounded/annotated display versions).
+
+| file | section | contents |
+|---|---|---|
+| `fig_01b_results.csv` | Fig 1B | lineage-size contrasts (Complex I / Complex V vs Control), per panel side |
+| `fig_01g_anova.csv` | Fig 1G | Type III ANOVA (`progeny ~ heteroplasmy + brain`) |
+| `fig_01p_results.csv` | Fig 1P | MitoXho1 vs MitoGFP within each mtDNA background |
+| `fig_01p_anova.csv` | Fig 1P | Type III ANOVA (2 × 2 factorial) |
+| `fig_03e_within_condition_results.csv` | Fig 3E / S7J | UCP1 / UCP2 vs GFP within each RNAi condition |
+| `fig_03e_diff_in_diff_results.csv` | Fig 3E / S7J | difference-in-differences (Complex V vs Complex I) |
+| `fig_03g_within_condition_results.csv` | Fig 3G | nlsLbNox / mitoLbNox vs Control within each RNAi condition |
+| `fig_03g_diff_in_diff_results.csv` | Fig 3G | difference-in-differences (Complex I vs Control) |
+| `fig_04c_results.csv` | Fig 4C | the three glial-Inx2 contrasts |
+| `combined_screen_results.csv` | Fig 4D & 4L | per-knockdown contrast vs `ND42 x Luciferase` for the pooled glial RNAi screen, joint BH-FDR; keyed by `manuscript_panel` |
+| `combined_phenotype_contrast.csv` | Fig 4D & 4L | `ND42 x Luciferase` vs `mCherry x Luciferase` phenotype contrast (uncorrected) |
+| `fig_04k_left_results.csv` | Fig 4K | Eaat1 KD vs wild-type (left-panel LME) |
+| `fig_04k_right_results.csv` | Fig 4K | CI-background Eaat1 KD + Eaat2-GFP rescue contrasts (right-panel GLS) |
+| `fig_05e_ldh_alone.csv` | Fig 5E | Ldh KD vs wild-type |
+| `fig_05e_ldh_worsens.csv` | Fig 5E | Ldh KD + CI vs CI alone |
+| `fig_05e_rescue_vs_baseline.csv` | Fig 5E | each rescue construct vs `ND42 x Ldh` |
+| `fig_05e_rescue_vs_control.csv` | Fig 5E | each rescue construct vs `ND42 x Luciferase` |
+| `fig_s01i_j_results.csv` | Fig S1I-J | proliferation-rate contrasts (Complex I / Complex V vs Control), per panel side |
+| `fig_s07c_results.csv` | Fig S7C | pairwise pAMPK ratio contrasts |
+| `fig_s07f_results.csv` | Fig S7F | SOD2 vs no SOD2 within each RNAi background |
+| `fig_s09a_results.csv` | Fig S9A | NSC-background simple effects within each glial knockdown |
+| `fig_s09a_vs_control_results.csv` | Fig S9A | glial knockdown vs pooled control within each NSC background |
+| `fig_s09i_results.csv` | Fig S9I | the three glial-LbNox contrasts |
+
 ## Analysis details
 
 - **Replication unit** is the brain (VNC): where a brain contributes multiple
