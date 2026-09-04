@@ -1,0 +1,2212 @@
+---
+title: "Manuscript figures for Drosophila NSC mosaicism"
+author: "Abhilesh Dhawanjewar"
+date: "2026-08-28"
+#date: "`r format(Sys.time(), '%Y-%m-%d')`"
+format:
+    html:
+        code-fold: true
+        embed-resources: true
+        page-layout: full
+        toc: true
+        toc-depth: 3
+        toc-title: "Contents"
+        theme: cosmo
+execute:
+    echo: true
+    warning: false
+    message: false
+---
+
+```{css, echo=FALSE}
+p code, li code, td code {
+    color: #3a3a3a;
+}
+
+.table tbody tr > td,
+.table tbody tr > th {
+    --bs-table-accent-bg: transparent;
+    --bs-table-striped-bg: transparent;
+    --bs-table-bg: transparent;
+}
+
+.table {
+    --bs-table-border-color: #adb5bd;
+    border-top-color: #adb5bd;
+    border-bottom-color: #adb5bd;
+}
+
+.table-striped > tbody > tr:nth-of-type(odd) > td,
+.table-striped > tbody > tr:nth-of-type(odd) > th {
+    background-color: transparent !important;
+}
+```
+
+```{=html}
+<!-- Click-to-zoom for figure images: full-screen overlay, wheel to zoom,
+     drag to pan, click background or Esc to close. Self-contained (no
+     extension, no CDN) so it survives embed-resources. -->
+<style>
+.cell-output-display img,
+.quarto-figure img,
+figure.figure > img { cursor: zoom-in; }
+#imgzoom { position: fixed; inset: 0; z-index: 10000; display: none;
+  background: rgba(0,0,0,.92); overflow: hidden; touch-action: none; }
+#imgzoom.open { display: block; }
+#imgzoom img { position: absolute; left: 50%; top: 50%;
+  max-width: 96vw; max-height: 92vh; width: auto; height: auto;
+  will-change: transform; user-select: none; -webkit-user-drag: none; cursor: grab; }
+#imgzoom.grabbing img { cursor: grabbing; }
+#imgzoom .zoom-hint { position: fixed; left: 50%; bottom: 14px;
+  transform: translateX(-50%); color: #cfcfcf;
+  font: 12px/1.4 system-ui, -apple-system, sans-serif;
+  background: rgba(0,0,0,.55); padding: 5px 12px; border-radius: 999px; }
+</style>
+<script>
+(function () {
+  var ov = document.createElement("div"); ov.id = "imgzoom";
+  var im = document.createElement("img");
+  var hint = document.createElement("div"); hint.className = "zoom-hint";
+  hint.textContent = "scroll to zoom · drag to pan · click background or Esc to close";
+  ov.appendChild(im); ov.appendChild(hint);
+  (document.body || document.documentElement).appendChild(ov);
+
+  var s = 1, tx = 0, ty = 0, drag = false, px = 0, py = 0;
+  function draw() {
+    im.style.transform = "translate(-50%,-50%) translate(" + tx + "px," + ty + "px) scale(" + s + ")";
+  }
+  function openZoom(src) {
+    im.src = src; s = 1; tx = 0; ty = 0; draw();
+    ov.classList.add("open"); document.documentElement.style.overflow = "hidden";
+  }
+  function closeZoom() {
+    ov.classList.remove("open"); document.documentElement.style.overflow = "";
+    im.removeAttribute("src");
+  }
+  document.addEventListener("click", function (e) {
+    var t = e.target;
+    if (t && t.tagName === "IMG" && !ov.contains(t) &&
+        t.closest(".cell-output-display, .quarto-figure, figure.figure")) {
+      openZoom(t.currentSrc || t.src);
+    }
+  });
+  ov.addEventListener("click", function (e) { if (e.target === ov || e.target === hint) closeZoom(); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeZoom(); });
+  ov.addEventListener("wheel", function (e) {
+    e.preventDefault();
+    var r = ov.getBoundingClientRect();
+    var ox = e.clientX - r.left - r.width / 2 - tx;
+    var oy = e.clientY - r.top - r.height / 2 - ty;
+    var ns = Math.min(20, Math.max(1, s * (e.deltaY < 0 ? 1.2 : 1 / 1.2)));
+    tx -= ox * (ns / s - 1); ty -= oy * (ns / s - 1); s = ns;
+    if (s === 1) { tx = 0; ty = 0; }
+    draw();
+  }, { passive: false });
+  ov.addEventListener("pointerdown", function (e) {
+    if (e.target !== im) return;
+    drag = true; px = e.clientX - tx; py = e.clientY - ty;
+    ov.classList.add("grabbing"); ov.setPointerCapture(e.pointerId);
+  });
+  ov.addEventListener("pointermove", function (e) {
+    if (!drag) return; tx = e.clientX - px; ty = e.clientY - py; draw();
+  });
+  ov.addEventListener("pointerup", function () { drag = false; ov.classList.remove("grabbing"); });
+})();
+</script>
+```
+
+```{r}
+#| label: setup
+#| code-summary: "Load libraries, set paths and seed"
+
+library(here)
+
+# Single-cell + plotting
+library(Seurat)
+library(tidyverse)
+library(patchwork)
+library(EnhancedVolcano)
+library(ggrepel)
+library(ggsci)
+library(scales)
+library(SCpubr)      # do_NebulosaPlot (marker feature-density UMAPs)
+library(ggrastr)     # rasterise() large point layers before saving
+library(circlize)    # colorRamp2 for ComplexHeatmap
+library(ComplexHeatmap)
+library(conflicted)
+
+# Seurat / ComplexHeatmap mask a handful of dplyr/base verbs. Pin the intended
+# winner explicitly rather than relying on attach order. `filter` is the only
+# ambiguous name called bare here (verified with conflicted::conflict_scout on
+# this exact library set); it resolves to dplyr::filter either way, so results
+# are unchanged. The rest are defensive for future edits.
+conflicts_prefer(
+  dplyr::filter, dplyr::select, dplyr::rename, dplyr::slice, dplyr::desc,
+  .quiet = TRUE
+)
+
+# Reproducibility: only DimPlot(shuffle = TRUE) point-draw order is stochastic
+GLOBAL_SEED <- 42L
+set.seed(GLOBAL_SEED)
+
+# --- Paths -------------------------------------------------------------------
+render_data_dir <- here("reports", "data")
+if (!dir.exists(render_data_dir)) {
+    stop(
+        "Render inputs not found at ", render_data_dir,
+        " -- see reports/README.md for what belongs here."
+    )
+}
+
+sc_obj_dir          <- file.path(render_data_dir, "py_scRNA_objs")
+deg_results_dir     <- file.path(render_data_dir, "edgeR_results")
+metabolomics_dir    <- file.path(render_data_dir, "metabolomics")
+metab_processed_dir <- here("metabolomics", "data", "processed")
+
+fig_dir      <- here("results", "manuscript_figures")
+deg_plot_dir <- file.path(fig_dir, "DEG_Pseudobulk_EdgeR")
+for (d in c(fig_dir, deg_plot_dir)) {
+    dir.create(d, recursive = TRUE, showWarnings = FALSE)
+}
+
+# --- Palettes --------------------------------------------------------------
+npg_colors          <- pal_npg("nrc", alpha = 0.7)(10)
+metabolomics_colors <- pal_npg("nrc")(10)
+
+# Gene classes hidden from the DE volcano panels (non-coding / repeat / artefact
+# annotations not biologically interpretable as DEGs). Display filter only:
+# the underlying edgeR tables are unchanged.
+gene_patterns_to_exclude <- c(
+    "^lncRNA",   # long non-coding RNAs
+    "rRNA",      # ribosomal RNA
+    "snoRNA",    # small nucleolar RNA
+    "snRNA",     # small nuclear RNA
+    "^FBti",     # transposable elements
+    "^Psi",      # pseudogenes
+    "^mir-",     # microRNAs
+    "^\\d+SrRNA" # ribosomal RNAs
+)
+```
+
+```{r}
+#| label: load-data
+#| code-summary: "Load the annotated Seurat object and metabolomics tables"
+#| output: false
+
+scRNA_data <- readRDS(
+    file.path(
+        sc_obj_dir,
+        "scRNA_data_QC_filtered_w_scVI_latent_annotated_seurat_dec_2025.rds"
+    )
+)
+
+# Differential metabolite abundance (limma) produced by metabolomics/00_differential_abundance.R.
+metabolomics_data <- read_csv(
+    file.path(metab_processed_dir, "metabolomics_differential_abundance_results.csv"),
+    show_col_types = FALSE
+) %>%
+    # Drop the internal standard, the per-sample "Sum" row, and metabolites
+    # with no pathway assignment.
+    filter(
+        !gene %in% c("D6-Glutaric Acid", "Sum"),
+        !is.na(Pathway)
+    )
+
+# log2 abundance matrix for the pathway-grouped heatmap (Fig S8I).
+metabolomics_log_mat <- readRDS(
+    file.path(metabolomics_dir, "metabolomics_log2_count_matrix.rds")
+)
+```
+
+
+```{r}
+#| label: plotting-functions
+#| include: false
+
+add_umap_arrows <- function(
+    seurat_obj, reduction = "umap",
+    buffer = 1, arrow_len = 3,
+    line_width = 1, text_size = 4
+) {
+    if (!reduction %in% names(seurat_obj@reductions)) {
+        stop(paste("Reduction", reduction, "not found in the Seurat object."))
+    }
+
+    embeddings <- Embeddings(seurat_obj, reduction = reduction)
+
+    u1_min <- min(embeddings[, 1])
+    u2_min <- min(embeddings[, 2])
+
+    origin_x <- u1_min - buffer
+    origin_y <- u2_min - buffer
+
+    list(
+        # UMAP 1 Arrow (Horizontal)
+        annotate(
+            geom = "segment",
+            x = origin_x, xend = origin_x + arrow_len,
+            y = origin_y, yend = origin_y,
+            arrow = arrow(length = unit(0.2, "cm"), type = "closed"),
+            color = "black", linewidth = line_width
+        ),
+        # UMAP 2 Arrow (Vertical)
+        annotate(
+            geom = "segment",
+            x = origin_x, xend = origin_x,
+            y = origin_y, yend = origin_y + arrow_len,
+            arrow = arrow(length = unit(0.2, "cm"), type = "closed"),
+            color = "black", linewidth = line_width
+        ),
+        # UMAP 1 Label
+        annotate(
+            geom = "text",
+            x = origin_x + (arrow_len / 2),
+            y = origin_y - 1,
+            label = "UMAP 1", size = text_size
+        ),
+        # UMAP 2 Label
+        annotate(
+            geom = "text",
+            x = origin_x - 1,
+            y = origin_y + (arrow_len / 2),
+            label = "UMAP 2", size = text_size, angle = 90
+        ),
+        # Allow drawing outside the plot panel
+        coord_cartesian(clip = "off")
+    )
+}
+
+fdr_to_stars <- function(fdr) {
+    case_when(
+        is.na(fdr) ~ NA_character_,
+        fdr < 0.001 ~ "***",
+        fdr < 0.01  ~ "**",
+        fdr < 0.05  ~ "*",
+        TRUE ~ "ns"
+    )
+}
+
+get_edgeR_star_labels <- function(gene, result_dirs, plot_labels) {
+    tibble(ResultDir = result_dirs, PlotLabel = plot_labels) %>%
+        mutate(
+            result_file = file.path(
+                deg_results_dir,
+                ResultDir,
+                paste0(ResultDir, "_edgeR_results.tsv")
+            ),
+            res = purrr::map(result_file, ~ {
+                gene_row <- readr::read_tsv(.x, show_col_types = FALSE) %>%
+                    filter(gene == !!gene)
+
+                if (nrow(gene_row) == 0) {
+                    tibble(FDR = NA_real_)
+                } else {
+                    gene_row %>% slice(1)
+                }
+            })
+        ) %>%
+        transmute(
+            PlotLabel,
+            FDR = purrr::map_dbl(res, ~ .x$FDR[[1]]),
+            label = fdr_to_stars(FDR)
+        ) %>%
+        filter(!is.na(label))
+}
+
+gene_exp_violin <- function(
+    object, gene,
+    condition_col = "condition",
+    target_celltypes = c("Neuroblasts", "Ganglion Mother Cells (Early)",
+                         "Ganglion Mother Cells (Late)", "Astrocytes",
+                         "Surface Glia", "Cortex Glia"),
+    colors = c("Control" = npg_colors[2], "Dysfunction" = npg_colors[1])
+) {
+
+    if (!gene %in% rownames(object)) {
+        stop(paste("Gene", gene, "not found in the Seurat object."))
+    }
+
+    df_violin <- FetchData(
+        object, vars = c(gene, "cell_type_manual", condition_col)
+    )
+    colnames(df_violin) <- c("Expression", "CellType", "Condition")
+
+    df_violin <- df_violin %>%
+        filter(CellType %in% target_celltypes)
+
+    df_violin <- df_violin %>%
+        mutate(PlotLabel = case_when(
+            CellType %in% c("Ganglion Mother Cells (Early)",
+                             "Ganglion Mother Cells (Late)") ~ "GMCs",
+            TRUE ~ as.character(CellType)
+        ))
+
+    bio_order <- c(
+        "Neuroblasts",
+        "GMCs",
+        "Astrocytes",
+        "Surface Glia",
+        "Cortex Glia"
+    )
+
+    present_labels <- c("Neuroblasts", "GMCs", "Astrocytes", "Surface Glia", "Cortex Glia")
+    actual_order <- present_labels[present_labels %in% unique(df_violin$PlotLabel)]
+
+    df_violin$PlotLabel <- factor(df_violin$PlotLabel, levels = actual_order)
+
+    # Define dodge width for positioning
+    dodge_width <- 0.7
+
+    p <- ggplot(df_violin, aes(x = PlotLabel, y = Expression, fill = Condition)) +
+        geom_point(
+            position = position_jitterdodge(
+                jitter.width = 0.4,
+                dodge.width = dodge_width
+            ),
+            shape = 21,
+            color = "black",
+            size = 1.5,
+            alpha = 0.2,
+            stroke = 0.2
+        ) +
+        geom_violin(position = position_dodge(width = dodge_width),
+                    scale = "width", trim = TRUE, alpha = 0.4,
+                    color = "black", linewidth = 0.3, width = 0.6) +
+        geom_boxplot(position = position_dodge(width = dodge_width),
+                     width = 0.1, outlier.shape = NA, alpha = 0.4) +
+
+        scale_fill_manual(
+            values = colors,
+            breaks = c("Control", "Dysfunction"),
+            labels = c("Control", "Complex I"),
+            name = "NSC>RNAi"
+        ) +
+        scale_x_discrete(expand = expansion(add = 0.1)) +
+        theme_bw() +
+        labs(
+            title = paste(gene, "Expression"),
+            y = "Normalized Expression",
+            x = NULL
+        ) +
+        theme(
+            axis.text.x = element_text(size = 11),
+            panel.grid.major.x = element_blank(),
+            panel.grid.minor = element_blank(),
+            legend.position = "right",
+            plot.title = element_text(hjust = 0.5, size = 14)
+        )
+
+    return(p)
+}
+
+deg_volcano_plot <- function(
+    cell_type,
+    results_dir = NULL,
+    plot_dir = NULL,
+    lfc_threshold = 1.0,
+    fdr_threshold = 0.05,
+    label_prop = 0.8,
+    min_labels = 5,
+    max_labels = 20,
+    highlight_genes = NULL,
+    remove_artifacts = TRUE,
+    exclude_patterns = NULL
+) {
+
+    cell_type <- gsub(" ", "_", cell_type)
+    ct_dir <- file.path(results_dir, cell_type)
+    deg_file <- file.path(ct_dir, paste0(cell_type, "_edgeR_results.tsv"))
+    deg_df <- read_tsv(deg_file, show_col_types = FALSE)
+
+    sig_pre_filter <- deg_df %>%
+        filter(FDR < fdr_threshold, abs(logFC) >= lfc_threshold)
+
+    artifact_genes <- character(0)
+    pattern_genes <- character(0)
+
+    if (remove_artifacts && "is_artifact" %in% colnames(deg_df)) {
+        artifact_genes <- sig_pre_filter %>% filter(is_artifact == TRUE) %>% pull(gene)
+        deg_df <- deg_df %>% filter(is_artifact == FALSE | is.na(is_artifact))
+    }
+
+    if (!is.null(exclude_patterns)) {
+        pat <- paste(exclude_patterns, collapse = "|")
+        pattern_genes <- sig_pre_filter %>% filter(grepl(pat, gene)) %>% pull(gene)
+        deg_df <- deg_df %>% filter(!grepl(pat, gene))
+    }
+
+    message("--- Filtering Report for ", cell_type, " ---")
+    if(length(artifact_genes) > 0) message("Removed Significant Artifacts: ", paste(artifact_genes, collapse = ", "))
+    if(length(pattern_genes) > 0) message("Removed Significant Pattern Matches: ", paste(pattern_genes, collapse = ", "))
+    message("------------------------------------------")
+
+    sig_df <- deg_df %>%
+        filter(FDR < fdr_threshold, abs(logFC) >= lfc_threshold) %>%
+        mutate(rank_score = abs(logFC) * -log10(FDR))
+
+    n_to_label <- max(min_labels, min(ceiling(nrow(sig_df) * label_prop), max_labels))
+
+    top_genes <- sig_df %>% arrange(desc(rank_score)) %>% head(n_to_label) %>% pull(gene)
+
+    # Separate regular and highlighted genes
+    if (!is.null(highlight_genes)) {
+        regular_genes <- setdiff(top_genes, highlight_genes)
+        highlight_genes <- intersect(highlight_genes, deg_df$gene)
+    } else {
+        regular_genes <- top_genes
+        highlight_genes <- character(0)
+    }
+
+    n_sig_up <- sum(deg_df$FDR < fdr_threshold & deg_df$logFC > lfc_threshold)
+    n_sig_down <- sum(deg_df$FDR < fdr_threshold & deg_df$logFC < -lfc_threshold)
+
+    message(sprintf("%s | Up: %d Down: %d", cell_type, n_sig_up, n_sig_down))
+
+    # Smart xlim based on significant genes
+    lfc_range <- range(sig_df$logFC)
+    buffer <- diff(lfc_range) * 0.15
+    xlim_val <- c(min(lfc_range[1] - buffer, -lfc_threshold * 1.2),
+                  max(lfc_range[2] + buffer, lfc_threshold * 1.2))
+
+    # Create base plot WITHOUT labels
+    p <- EnhancedVolcano(
+        deg_df,
+        lab = NA,
+        x = "logFC",
+        y = "FDR",
+        xlim = xlim_val,
+        xlab = bquote(~Log[2]~ 'Fold change'),
+        ylab = bquote(~-Log[10]~ 'FDR'),
+        pCutoff = fdr_threshold,
+        FCcutoff = lfc_threshold,
+        pointSize = 2.0,
+        colAlpha = 0.6,
+        legendPosition = 'top',
+        drawConnectors = FALSE,
+        legendLabSize = 8,
+        legendIconSize = 3,
+        title = paste0(
+            cell_type
+        ),
+        subtitle = NULL,
+        legendLabels = c(
+            ' NS',
+            bquote(~Log[2]~'FC'),
+            ' FDR',
+            bquote(~FDR~and~Log[2]~'FC')
+        )
+    )
+
+    # Add regular gene labels with STRONGER ggrepel settings
+    if (length(regular_genes) > 0) {
+        regular_df <- deg_df %>%
+            filter(gene %in% regular_genes)
+
+        p <- p +
+            geom_text_repel(
+                data = regular_df,
+                aes(x = logFC, y = -log10(FDR), label = gene),
+                size = 3.5,
+                fontface = "plain",
+                color = "black",
+                box.padding = 0.3,
+                point.padding = 0.2,
+                segment.color = "grey50",
+                segment.size = 0.3,
+                min.segment.length = 0.2,
+                max.overlaps = Inf,
+                force = 3,
+                force_pull = 1,
+                max.time = 2,
+                max.iter = 50000,
+                seed = 42
+            )
+    }
+
+    # Add highlighted gene labels with even STRONGER settings
+    if (length(highlight_genes) > 0) {
+        highlight_df <- deg_df %>%
+            filter(gene %in% highlight_genes)
+
+        p <- p +
+            geom_text_repel(
+                data = highlight_df,
+                aes(x = logFC, y = -log10(FDR), label = gene),
+                size = 4.5,
+                fontface = "bold",
+                color = "black",
+                box.padding = 0.3,
+                point.padding = 0.2,
+                segment.color = "black",
+                segment.size = 0.5,
+                min.segment.length = 0.2,
+                max.overlaps = Inf,
+                force = 3,
+                force_pull = 1.5,
+                max.time = 2,
+                max.iter = 50000,
+                seed = 42
+            )
+    }
+
+    # Move legend to top-left corner
+    p <- p +
+        theme(
+            legend.position = c(0.02, 0.98),
+            legend.justification = c(0, 1),
+            legend.margin = margin(2, 4, 2, 4),
+            legend.spacing.x = unit(0.1, "cm"),
+            legend.text = element_text(size = 8, margin = margin(l = -3, unit = "pt")),
+            title = element_text(hjust = 0.5, size = 14),
+            axis.title = element_text(size = 11)
+        )
+
+    return(p)
+}
+
+metabolomics_volcano_plot <- function(
+    res_df,
+    lfc_threshold = 0.5,
+    p_threshold = 0.05,
+    n_top_genes = 8,
+    highlight_genes = c("Aspartate", "N-Acetyl-Aspartate", "Adenylosuccinate")
+) {
+    # 1. ULTRA-DENSE COORDINATE MASK (Protects significance lines)
+    # 400 points creating a physical barrier for ggrepel
+    h_mask <- data.frame(
+        logFC = seq(-4.5, 4.5, length.out = 200),
+        P.Value = p_threshold,
+        gene = NA
+    )
+    v_mask <- data.frame(
+        logFC = c(rep(lfc_threshold, 100), rep(-lfc_threshold, 100)),
+        P.Value = 10^seq(-5, 0, length.out = 100),
+        gene = NA
+    )
+    line_mask <- rbind(h_mask, v_mask)
+
+    # 2. COLOR LOGIC (Standard Categories + Priority Biological Overrides)
+    keyvals <- rep("grey80", nrow(res_df))
+    names(keyvals) <- rep('NS', nrow(res_df))
+
+    # Standard Significance Categories
+    fc_idx <- which(res_df$P.Value >= p_threshold & abs(res_df$logFC) > lfc_threshold)
+    keyvals[fc_idx] <- metabolomics_colors[3]; names(keyvals)[fc_idx] <- 'Log2 FC'
+
+    p_idx <- which(res_df$P.Value < p_threshold & abs(res_df$logFC) <= lfc_threshold)
+    keyvals[p_idx] <- metabolomics_colors[4]; names(keyvals)[p_idx] <- 'p-value'
+
+    both_idx <- which(res_df$P.Value < p_threshold & abs(res_df$logFC) > lfc_threshold)
+    keyvals[both_idx] <- metabolomics_colors[5]; names(keyvals)[both_idx] <- 'p-value and Log2 FC'
+
+    # Biological Overrides
+    glyco_idx <- grep("Glycolysis", res_df$Pathway, ignore.case = TRUE)
+    keyvals[glyco_idx] <- metabolomics_colors[1]; names(keyvals)[glyco_idx] <- 'Glycolysis'
+
+    targ_idx <- which(res_df$gene %in% highlight_genes)
+    keyvals[targ_idx] <- metabolomics_colors[8]; names(keyvals)[targ_idx] <- 'Key Candidates'
+
+    # 3. LABEL SELECTION (Including ALL Glycolysis)
+    bold_labels <- intersect(highlight_genes, res_df$gene)
+    all_glyco <- res_df$gene[glyco_idx]
+
+    sig_genes <- res_df %>% filter(P.Value < p_threshold, abs(logFC) >= lfc_threshold)
+    top_hits <- sig_genes %>% arrange(P.Value) %>% head(n_top_genes) %>% pull(gene)
+
+    regular_labels <- setdiff(unique(c(all_glyco, top_hits)), bold_labels)
+
+    # 4. BASE PLOT
+    p <- EnhancedVolcano(
+        res_df, lab = NA, x = "logFC", y = "P.Value",
+        xlim = c(-4.5, 4.5), ylim = c(0, 5),
+        xlab = bquote(~Log[2]~ 'fold change'),
+        ylab = bquote(~-Log[10]~ 'P-value'),
+        pCutoff = p_threshold, FCcutoff = lfc_threshold,
+        colCustom = keyvals, pointSize = 2.0, colAlpha = 0.6,
+        legendPosition = 'none', drawConnectors = FALSE,
+        title = NULL, subtitle = NULL
+    )
+
+    # 5. REPEL LAYERS (Optimized for Clutter and Short Connectors)
+    # Use a smaller nudge and high force to keep labels tight but separate
+    common_repel <- function(plot_obj, label_subset, size, face, force_val) {
+        plot_obj + geom_text_repel(
+            data = rbind(filter(res_df, gene %in% label_subset) %>% select(logFC, P.Value, gene), line_mask),
+            aes(x = logFC, y = -log10(P.Value), label = gene),
+            size = size, fontface = face, color = "black", family = "sans",
+            # Determistic small nudge to shorten connectors
+            nudge_y = 0.1,
+            nudge_x = 0.1,
+            box.padding = 0.2,       # Keeps labels closer to each other
+            point.padding = 0.4,     # Buffer to avoid sitting directly on lines
+            segment.color = "grey30",
+            segment.size = 0.4,
+            min.segment.length = 0,
+            force = force_val,       # High force resolves bottom clutter
+            max.overlaps = Inf,
+            seed = 42,
+            na.rm = TRUE
+        )
+    }
+
+    if (length(regular_labels) > 0) {
+        p <- common_repel(p, regular_labels, 3.5, "plain", 5)
+    }
+    if (length(bold_labels) > 0) {
+        p <- common_repel(p, bold_labels, 4.5, "bold", 8)
+    }
+
+    # 6. THEME (Heavy Ticks, Bold Labels, No Border)
+    p <- p +
+        theme(
+            text = element_text(family = "sans"),
+            legend.position = c(0.02, 0.98),
+            legend.justification = c(0, 1),
+            legend.title = element_blank(),
+            legend.margin = margin(2, 4, 2, 4),
+            axis.title = element_text(size = 14)
+        )
+
+    return(p)
+}
+
+```
+
+
+## scRNA-seq analysis figures
+
+### Figure S4A-C: Quality-control distributions
+
+Cells (individual barcodes) were filtered before integration. Doublets were
+removed with SOLO (probability > 0.5 excluded); the remaining singlets were
+pooled by batch and filtered on batch-specific adaptive thresholds
+(`scRNA_pipeline/02_QC_filtering.py`): median ± 3 MADs of the log1p detected-gene
+and total-UMI distributions (lower and upper bounds, floored at zero), and
+median + 3 MADs of the untransformed percentage-mitochondrial distribution
+(upper bound only). Cells outside these per-batch bounds were excluded.
+
+```{r}
+#| label: fig-final-manuscript-qc-composite
+#| code-summary: "Assemble the S4A-C QC composite"
+#| fig-width: 18
+#| fig-height: 14
+#| fig-cap: "Quality-control distributions across the two scRNA-seq batches. (A) Per-batch detected genes, total UMI counts, and mitochondrial transcript content (violins with embedded boxplots). (B) Total UMI counts vs. detected genes (left) and vs. mitochondrial content (right), per batch (2D density). (C) SOLO doublet-probability scores per batch and experimental condition (histograms). Red dashed lines mark the batch-specific lower and upper filtering thresholds."
+
+# ============================================================================
+# 1. DATA LOADING & MERGED LABELS
+# ============================================================================
+
+df_qc_raw <- read_csv(file.path(sc_obj_dir, "QC_raw_singlets_for_plotting.csv"),
+                      show_col_types = FALSE)
+df_qc_thresh <- read_csv(file.path(sc_obj_dir, "complete_thresholds_for_QC_plots.csv"),
+                         show_col_types = FALSE)
+
+doublet_files <- list.files(sc_obj_dir, pattern = "_doublet_probs.csv", full.names = TRUE)
+df_doublets <- map_df(doublet_files, read_csv)
+
+# Merge condition labels for a single legend
+# Control1/3 -> Control; Dysfunction1/3 -> ND-75 KD
+df_doublets <- df_doublets %>%
+    left_join(unique(df_qc_raw %>% select(sample_id, batch)), by = "sample_id") %>%
+    mutate(condition_label = case_when(
+        grepl("Control", sample_id) ~ "Control",
+        grepl("Dysfunction", sample_id) ~ "ND-75 KD"
+    ))
+
+# Standardize Factors
+batch_colors <- c("Batch1" = npg_colors[3], "Batch2" = npg_colors[4])
+cond_colors <- c("Control" = npg_colors[2], "ND-75 KD" = npg_colors[1])
+
+df_qc_raw$batch <- factor(df_qc_raw$batch, levels = names(batch_colors))
+df_qc_thresh$batch <- factor(df_qc_thresh$batch, levels = names(batch_colors))
+df_doublets$batch <- factor(df_doublets$batch, levels = names(batch_colors))
+df_doublets$condition_label <- factor(df_doublets$condition_label, levels = names(cond_colors))
+
+# ============================================================================
+# 2. SYNCHRONIZED AXIS CALCULATIONS
+# ============================================================================
+
+max_mt_global <- max(df_qc_raw$pct_counts_mt, na.rm = TRUE)
+hist_bins <- df_doublets %>%
+    group_by(batch, condition_label) %>%
+    do(as.data.frame(table(cut(.$doublet_probability, breaks = seq(0, 1, length.out = 51)))))
+max_hist_y <- max(hist_bins$Freq) * 1.05
+
+# ============================================================================
+# 3. PLOTTING FUNCTIONS (AXIS COLLECTION LOGIC)
+# ============================================================================
+
+make_manuscript_violin <- function(df, df_t, metric, label, low_col = NULL, high_col = NULL, log_y = FALSE) {
+  # Initialize the base plot with batch-specific colors
+  p <- ggplot(df, aes(x = batch, y = .data[[metric]], fill = batch)) +
+    geom_violin(trim = FALSE, alpha = 0.5, scale = "width") +
+    geom_boxplot(width = 0.1, fill = "white", outlier.shape = NA, alpha = 0.7) +
+    scale_fill_manual(values = batch_colors) + # Requires batch_colors to be defined globally
+    theme_bw() +
+    labs(y = label, x = NULL) +
+    theme(legend.position = "none",
+          panel.grid.minor = element_blank())
+
+  # Apply log10 scaling with human-readable 'K' notation for axes
+  if(log_y) {
+    p <- p + scale_y_log10(labels = label_number(scale_cut = cut_short_scale()))
+  }
+
+  # Overlay batch-specific horizontal dashed lines for thresholds
+  for(i in seq_len(nrow(df_t))) {
+    batch_name <- as.character(df_t$batch[i])
+    x_idx <- which(levels(df$batch) == batch_name)
+
+    # Draw lower threshold line if it exists
+    if (!is.null(low_col) && !is.na(df_t[[low_col]][i])) {
+      p <- p + annotate("segment", x = x_idx - 0.4, xend = x_idx + 0.4,
+                        y = df_t[[low_col]][i], yend = df_t[[low_col]][i],
+                        color = "firebrick", linetype = "dashed", linewidth = 0.8)
+    }
+    # Draw upper threshold line if it exists
+    if (!is.null(high_col) && !is.na(df_t[[high_col]][i])) {
+      p <- p + annotate("segment", x = x_idx - 0.4, xend = x_idx + 0.4,
+                        y = df_t[[high_col]][i], yend = df_t[[high_col]][i],
+                        color = "firebrick", linetype = "dashed", linewidth = 0.8)
+    }
+  }
+  return(p)
+}
+
+# Density Plot Function for Complexity and Quality
+make_batch_density_fixed <- function(df, df_t, x_met, y_met, b_name, is_log_y = FALSE) {
+    # Filter data for specific batch
+    df_sub <- df %>% filter(batch == b_name)
+    df_t_sub <- df_t %>% filter(batch == b_name)
+
+    # Determine Y-axis label based on metric
+    y_lab <- if(y_met == "pct_counts_mt") "MT %" else "Genes (log)"
+
+    p <- ggplot(df_sub, aes(x = .data[[x_met]], y = .data[[y_met]])) +
+        geom_bin2d(bins = 100) +
+        # Enable legend for patchwork collection
+        scale_fill_viridis_c(option = "magma", trans = "log10", name = "Cell Density") +
+        scale_x_log10(labels = label_number(scale_cut = cut_short_scale())) +
+        theme_bw() +
+        labs(x = "Total UMIs (log)", y = y_lab)
+
+    if(is_log_y) {
+        p <- p + scale_y_log10(labels = label_number(scale_cut = cut_short_scale()))
+    } else {
+        # max_mt_global must be defined
+        p <- p + coord_cartesian(ylim = c(0, max_mt_global))
+    }
+
+    # Add verified thresholds (Cyan)
+    p <- p + geom_vline(xintercept = df_t_sub$min_counts, color = "firebrick", linetype = "dashed")
+    if(y_met == "n_genes_by_counts") {
+        p <- p + geom_hline(yintercept = df_t_sub$min_genes, color = "firebrick", linetype = "dashed")
+    }
+    if(y_met == "pct_counts_mt") {
+        p <- p + geom_hline(yintercept = df_t_sub$max_mt, color = "firebrick", linetype = "dashed")
+    }
+
+    return(p)
+}
+
+# Doublet Histogram Function
+make_doublet_hist_fixed <- function(df, b_name, y_limit) {
+    # Filter for batch
+    df_sub <- df %>% filter(batch == b_name)
+
+    p <- ggplot(df_sub, aes(x = doublet_probability, fill = condition_label)) +
+        geom_histogram(bins = 50, color = "black", linewidth = 0.2, alpha = 0.7, position = "identity") +
+        geom_vline(xintercept = 0.5, linetype = "dashed", color = "firebrick", linewidth = 0.8) +
+        scale_fill_manual(values = cond_colors, name = "Condition") +
+        scale_y_continuous(limits = c(0, y_limit), expand = expansion(mult = c(0, 0.05))) +
+        # Add the facet label to the right
+        facet_grid(batch ~ .) +
+        theme_bw() +
+        labs(x = "Doublet Probability Score", y = "Cell Count") +
+        # Style the facet strip
+        theme(strip.background = element_blank(),
+              strip.text = element_text(size = 10),
+              strip.placement = "inside",
+              panel.border = element_rect(colour = "black", fill = NA))
+
+    return(p)
+}
+
+# ============================================================================
+# 4. COMPONENT GENERATION & ASSEMBLY
+# ============================================================================
+
+v1 <- make_manuscript_violin(df_qc_raw, df_qc_thresh, "n_genes_by_counts", "Detected Genes (log)", "min_genes", "max_genes", log_y = TRUE)
+v2 <- make_manuscript_violin(df_qc_raw, df_qc_thresh, "total_counts", "UMI Counts (log)", "min_counts", "max_counts", log_y = TRUE)
+v3 <- make_manuscript_violin(df_qc_raw, df_qc_thresh, "pct_counts_mt", "Mitochondrial Content (%)", NULL, "max_mt", log_y = FALSE)
+
+# Column 1: Feature Complexity (Genes vs. UMIs)
+s1_b1 <- make_batch_density_fixed(df_qc_raw, df_qc_thresh, "total_counts", "n_genes_by_counts", "Batch1", is_log_y = TRUE)
+s1_b2 <- make_batch_density_fixed(df_qc_raw, df_qc_thresh, "total_counts", "n_genes_by_counts", "Batch2", is_log_y = TRUE)
+
+# Column 2: Mitochondrial Quality (MT% vs. UMIs)
+s2_b1 <- make_batch_density_fixed(df_qc_raw, df_qc_thresh, "total_counts", "pct_counts_mt", "Batch1", is_log_y = FALSE)
+s2_b2 <- make_batch_density_fixed(df_qc_raw, df_qc_thresh, "total_counts", "pct_counts_mt", "Batch2", is_log_y = FALSE)
+
+# Column 3: Doublet Histograms
+d_b1 <- make_doublet_hist_fixed(df_doublets, "Batch1", max_hist_y)
+d_b2 <- make_doublet_hist_fixed(df_doublets, "Batch2", max_hist_y)
+
+
+col1 <- (s1_b1 / s1_b2) + plot_layout(axes = "collect", guides = "collect") & theme(legend.position = "bottom")
+col2 <- (s2_b1 / s2_b2) + plot_layout(axes = "collect", guides = "collect") & theme(legend.position = "bottom")
+col3 <- (d_b1 / d_b2) + plot_layout(axes = "collect", guides = "collect") & theme(legend.position = "bottom")
+
+
+# Panel layout:
+#   A = row of the three QC-metric violins (genes, UMIs, MT%), split by batch
+#   B = 2x2 grid of the 2D-density plots (genes-vs-UMI | MT%-vs-UMI) x (Batch1 / Batch2)
+#   C = doublet-probability histograms (Batch1 / Batch2), to the right of B
+# A spans the full width on top; B (~2.6x wider) and C share the row below.
+# wrap_elements() keeps each compound panel as ONE unit so `design` places it
+# and it gets a single A/B/C tag (otherwise patchwork flattens and tags every leaf).
+panel_A <- wrap_elements(v1 | v2 | v3)
+panel_B <- wrap_elements((col1 | col2) + plot_layout(guides = "collect"))
+panel_C <- wrap_elements(col3)
+
+final_composite <- wrap_plots(
+  A = panel_A,
+  B = panel_B,
+  C = panel_C,
+  design  = "AAA\nBBC",
+  widths  = c(1.3, 1.3, 1),
+  heights = c(1, 2.5)
+) +
+  plot_annotation(tag_levels = "A") &
+  theme(plot.tag = element_text(size = 20, face = "bold"))
+
+final_composite
+
+ggsave(
+    filename = file.path(fig_dir, "QC_Composite_Figure.pdf"),
+    plot = final_composite,
+    width = 18,
+    height = 16,
+    units = "in",
+    device = "pdf"
+)
+
+ggsave(
+    filename = file.path(fig_dir, "QC_Composite_Figure.png"),
+    plot = final_composite,
+    width = 18,
+    height = 16,
+    units = "in",
+    device = "png",
+    dpi = 600
+)
+
+ggsave(
+    filename = file.path(fig_dir, "QC_thresholds_violin_plots.pdf"),
+    plot = v1 | v2 | v3,
+    width = 12,
+    height = 5,
+    device = "pdf"
+)
+
+ggsave(
+    filename = file.path(fig_dir, "QC_genes_vs_counts.pdf"),
+    plot = col1,
+    width = 8,
+    height = 10,
+    device = "pdf"
+)
+
+ggsave(
+    filename = file.path(fig_dir, "QC_mt_vs_counts.pdf"),
+    plot = col2,
+    width = 8,
+    height = 10,
+    device = "pdf"
+)
+
+ggsave(
+    filename = file.path(fig_dir, "QC_doublet_histograms.pdf"),
+    plot = col3,
+    width = 8,
+    height = 10,
+    device = "pdf"
+)
+```
+
+### Figure S4D-F: Integration and clustering UMAPs
+
+The scVI latent space was learned with experimental batch as the batch key and
+replicate and percent mitochondrial content as covariates. Control and Complex I (ND-75) RNAi cells co-embed and the two
+sequencing batches are intermixed, consistent with successful batch correction
+before clustering. Leiden clustering was run over resolutions 0.2–1.2
+(pyclustree) and resolution 0.4 selected, giving 19 clusters with cell-type identities assigned based on marker gene expression (Fig 2B).
+
+```{r}
+#| label: fig-umap-integration-clusters
+#| code-summary: "Integration + clustering UMAP composite (Fig S4D-F)"
+#| fig-width: 18
+#| fig-height: 6
+#| fig-cap: "UMAP of the integrated single-cell transcriptomes coloured by (D) experimental condition (Control, Complex I RNAi), (E) sequencing batch, and (F) Leiden cluster at resolution 0.4. Each point is a cell."
+
+umap_condition_plot <- DimPlot(
+    scRNA_data,
+    reduction = "umap",
+    group.by = "condition",
+    shuffle = TRUE,
+    pt.size = 0.1
+) + scale_color_manual(
+    values = c(
+        "Control" = npg_colors[2],
+        "Dysfunction" = npg_colors[1]
+    ),
+    labels = c(
+        "Control" = "Control",
+        "Dysfunction" = "ND-75 KD"
+    )
+) +
+    labs(title = NULL) +
+    theme_void() +
+    add_umap_arrows(scRNA_data) +
+    theme(
+        legend.position = "inside",
+        legend.position.inside = c(0.85, 0.15),
+        legend.title = element_blank(),
+        legend.text = element_text(size = 10)
+    )
+
+umap_batch_plot <- DimPlot(
+    scRNA_data,
+    reduction = "umap",
+    group.by = "batch",
+    shuffle = TRUE,
+    pt.size = 0.1
+) + scale_color_manual(
+    values = c(
+        "Batch1" = npg_colors[4],
+        "Batch2" = npg_colors[7]
+    ),
+    labels = c(
+        "Batch1" = "Batch 1",
+        "Batch2" = "Batch 2"
+    )
+) +
+    labs(title = NULL) +
+    theme_void() +
+    add_umap_arrows(scRNA_data) +
+    theme(
+        legend.position = "inside",
+        legend.position.inside = c(0.85, 0.15),
+        legend.title = element_blank(),
+        legend.text = element_text(size = 10)
+    )
+
+Idents(scRNA_data) <- scRNA_data$leiden_r0p4
+
+umap_cluster_plot <- DimPlot(
+    scRNA_data,
+    reduction = "umap",
+    group.by = "leiden_r0p4",
+    shuffle = TRUE,
+    label = TRUE,
+    pt.size = 0.1
+) +
+    scale_color_d3(palette = "category20") +
+    geom_label_repel(data = data.frame(), aes()) +  # Dummy to avoid label overlap issues
+    labs(title = NULL) +
+    theme_void() +
+    add_umap_arrows(scRNA_data) +
+    theme(
+        legend.position = "none"
+    )
+
+# Rasterise the dense point layers before saving
+umap_condition_plot_raster <- rasterise(umap_condition_plot, layers = "Point", dpi = 600)
+umap_batch_plot_raster     <- rasterise(umap_batch_plot,     layers = "Point", dpi = 600)
+umap_cluster_plot_raster   <- rasterise(umap_cluster_plot,   layers = "Point", dpi = 600)
+
+# Per-panel files
+panel_files <- list(
+    UMAP_ND75KD_vs_Control      = umap_condition_plot_raster,
+    UMAP_Batch1_vs_Batch2       = umap_batch_plot_raster,
+    UMAP_Clusters_Leiden_r0p4   = umap_cluster_plot_raster
+)
+for (nm in names(panel_files)) {
+    for (dev in c("pdf", "png")) {
+        ggsave(
+            filename = file.path(fig_dir, paste0(nm, ".", dev)),
+            plot = panel_files[[nm]], width = 6, height = 6, units = "in",
+            device = dev, dpi = if (dev == "png") 600 else 300
+        )
+    }
+}
+
+# Side-by-side composite (D, E, F)
+umap_s4def <- (
+    umap_condition_plot_raster | umap_batch_plot_raster | umap_cluster_plot_raster
+) + plot_annotation(tag_levels = list(c("D", "E", "F")))
+
+for (dev in c("pdf", "png")) {
+    ggsave(
+        filename = file.path(fig_dir, paste0("UMAP_Integration_QC_S4D-F.", dev)),
+        plot = umap_s4def, width = 18, height = 6, units = "in",
+        device = dev, dpi = if (dev == "png") 600 else 300
+    )
+}
+
+umap_s4def
+```
+
+### Figure 2B: UMAP by cell type
+
+Cluster identities were assigned manually from curated marker sets in published
+larval CNS studies (Fig 2C, S4G; Table S1). Downstream condition comparisons use the NSC, GMC and glial cell
+types. An intermediate-progenitor cluster and a muscle-cell contamination
+cluster (clusters 8 and 18) were not treated as annotated cell types and are
+drawn in grey.
+
+```{r}
+#| label: fig-umap-by-celltype
+#| code-summary: "UMAP coloured by annotated cell type (Fig 2B)"
+#| fig-width: 12
+#| fig-height: 12
+#| fig-cap: "UMAP of single-cell transcriptomes from larval ventral nerve cords coloured by the 12 annotated cell types: Neuroblasts (NSCs), Ganglion Mother Cells (Early), Ganglion Mother Cells (Late), Newborn Neurons, Immature Neurons, Glutamatergic, GABAergic, Cholinergic and Dopaminergic Neurons, Astrocytes, Cortex Glia and Surface Glia. Labels sit at cell-type centroids; two non-annotated clusters are shown in grey."
+
+material_palette <- c(
+    # --- Progenitors (Red/Orange) ---
+    "Neuroblasts" = "#D32F2F",                     # Red 700
+    "Ganglion Mother Cells (Early)" = "#F4511E",   # Deep Orange 600
+    "Ganglion Mother Cells (Late)" = "#FB8C00",    # Orange 600
+    # --- Immature / Newborn (Cyan/Teal) ---
+    "Newborn Neurons" = "#00BCD4",                 # Cyan 500
+    "Immature Neurons" = "#0097A7",                # Cyan 700
+    # --- Mature Neurons (Blue/Green/Pink) ---
+    "Cholinergic Neurons" = "#1976D2",             # Blue 700
+    "GABAergic Neurons" = "#2E7D32",               # Green 800
+    "Glutamatergic Neurons" = "#C2185B",           # Pink 700
+    "Dopaminergic Neurons" = "#5D4037",            # Brown 700
+    # --- Glia (Yellow/Lime) ---
+    "Astrocytes" = "#AFB42B",                      # Lime 700
+    "Cortex Glia" = "#CDDC39",                     # Lime 500
+    "Surface Glia" = "#FBC02D",                    # Yellow 700
+    # --- Deemphasized ---
+    "Intermediate Neural Progenitors" = "#E0E0E0", # Grey200
+    "Contamination (Muscle Cells)" = "#E0E0E0"     # Grey200
+)
+
+# Set the factor levels to ensure the colors map correctly
+Idents(scRNA_data) <- scRNA_data$cell_type_manual
+Idents(scRNA_data) <- factor(x = Idents(scRNA_data), levels = names(material_palette))
+
+# Calculate centroids
+umap_coords <- as.data.frame(Embeddings(scRNA_data, reduction = "umap"))
+
+umap_coords$cluster_id <- as.character(scRNA_data$leiden_r0p4)
+umap_coords$cluster_label <- as.character(scRNA_data$cell_type_manual)
+
+representative_ids <- c("13", "2", "4", "14", "0", "1", "3", "11", "6", "7", "10", "16")
+
+# 3. Calculate Medoids for all Representatives
+centroids <- umap_coords %>%
+    filter(cluster_id %in% representative_ids) %>%
+    group_by(cluster_id) %>%
+    mutate(
+        mean_x = mean(UMAP_1),
+        mean_y = mean(UMAP_2),
+        dist_to_mean = sqrt((UMAP_1 - mean_x)^2 + (UMAP_2 - mean_y)^2)
+    ) %>%
+    # Keep only the single cell with the minimum distance (The Medoid)
+    slice(which.min(dist_to_mean)) %>%
+    ungroup() %>%
+    select(cluster = cluster_label, UMAP_1, UMAP_2)
+
+# Manual Adjustment for Dopaminergic Neurons (Cluster 6)
+dopa_cells <- subset(umap_coords, cluster_id == "6")
+
+dist_to_center_dopa <- sqrt((dopa_cells$UMAP_1 - mean(dopa_cells$UMAP_1))^2 + (dopa_cells$UMAP_2 - mean(dopa_cells$UMAP_2))^2)
+medoid_row_dopa <- dopa_cells[which.min(dist_to_center_dopa), ]
+
+# Define Manual Offsets
+# Negative Y = Downwards
+shift_x_dopa <- 0     # Keep X centered (change to +/- to move Left/Right)
+shift_y_dopa <- -2.0  # Move Down
+
+centroids[centroids$cluster == "Dopaminergic Neurons", "UMAP_1"] <- medoid_row_dopa$UMAP_1 + shift_x_dopa
+centroids[centroids$cluster == "Dopaminergic Neurons", "UMAP_2"] <- medoid_row_dopa$UMAP_2 + shift_y_dopa
+
+umap_celltype_plot <- DimPlot(
+    scRNA_data,
+    reduction = "umap",
+    group.by = "cell_type_manual",
+    shuffle = TRUE,
+    label = FALSE,
+    pt.size = 0.1
+) +
+    scale_color_manual(values = material_palette) +
+    geom_label_repel(
+        data = centroids,
+        aes(x = UMAP_1, y = UMAP_2, label = cluster),
+        fill = "gray95",
+        color = "black",
+        alpha = 0.8,
+        size = 6,
+        min.segment.length = 0,
+        segment.size = 0.8,
+        box.padding = 0.5,
+        force = 2
+    ) +
+    labs(title = NULL) +
+    theme_void() +
+    add_umap_arrows(scRNA_data) +
+    theme(
+        legend.position = "none"
+    )
+
+umap_celltype_plot_raster <- rasterise(
+    umap_celltype_plot,
+    layers = "Point",
+    dpi = 600
+)
+
+ggsave(
+    filename = file.path(fig_dir, "UMAP_CellTypes.pdf"),
+    plot = umap_celltype_plot_raster,
+    width = 12,
+    height = 12,
+    units = "in",
+    device = "pdf"
+)
+
+ggsave(
+    filename = file.path(fig_dir, "UMAP_CellTypes.png"),
+    plot = umap_celltype_plot_raster,
+    width = 6,
+    height = 6,
+    units = "in",
+    device = "png",
+    dpi = 600
+)
+
+umap_celltype_plot
+```
+
+### Figure 2C: Cell-type marker dot plot
+
+Marker gene expression: for each annotated cell type, characterized markers from literature are used to assign cell-type.
+Expression is min–max scaled per gene across cell types; dots below 0.1 % expressing or 0.25 mean counts are
+dropped for legibility.
+
+```{r}
+#| label: fig-marker-dotplot
+#| code-summary: "Cell-type marker dot plot (Fig 2C)"
+#| fig-width: 10
+#| fig-height: 6
+#| fig-cap: "Dot plot of cell-type marker gene expression across the annotated cell types. Dot size, percentage of cells expressing the gene; colour, per-gene min–max-scaled (0–1) mean expression. Low-expression dots are not shown."
+
+clusters_to_exclude <- c("8", "18")
+scRNA_data_for_plot <- subset(
+    scRNA_data,
+    subset = !(leiden_r0p4 %in% clusters_to_exclude)
+)
+
+Idents(scRNA_data_for_plot) <- scRNA_data_for_plot$cell_type_manual
+
+scRNA_data_for_plot$cell_type_manual <- factor(scRNA_data_for_plot$cell_type_manual, levels = c(
+  "Neuroblasts",
+  "Ganglion Mother Cells (Early)",
+  "Ganglion Mother Cells (Late)",
+  "Newborn Neurons",
+  "Immature Neurons",
+  "Cholinergic Neurons",
+  "GABAergic Neurons",
+  "Glutamatergic Neurons",
+  "Dopaminergic Neurons",
+  "Astrocytes",
+  "Cortex Glia",
+  "Surface Glia"
+))
+
+# Comprehensive markers
+markers <- list(
+  "Neuroblasts" = c("dpn", "mira", "wor", "ase"),
+  "GMCs (early)" = c("pros", "nerfin-1"),
+  "GMCs (late)" = c("dap"),
+  "Newborn" = c("Hey"),
+  "Immature" = c("elav", "nSyb", "CadN"),
+  "Cholinergic" = c("ChAT", "VAChT"),
+  "GABAergic" = c("Gad1"),
+  "Glutamatergic" = c("VGlut"),
+  "Dopaminergic" = c("ple", "DAT"),
+  "Astrocytes" = c("alrm", "Eaat1"),
+  "Cortex Glia" = c("wrapper", "zyd"),
+  "Surface Glia" = c("moody", "Mdr65")
+)
+
+flat_markers <- unlist(markers, use.names = FALSE)
+
+# 1. Generate the raw (unscaled) DotPlot data
+plot_data <- DotPlot(
+    scRNA_data_for_plot,
+    features = flat_markers,
+    scale = FALSE
+)$data
+
+# 2. Apply Scanpy-style Min-Max Scaling and Filter
+plot_data <- plot_data %>%
+  group_by(features.plot) %>%
+  mutate(avg.exp.scaled = (avg.exp - min(avg.exp)) / (max(avg.exp) - min(avg.exp) + 1e-10)) %>%
+  filter(pct.exp > 0.1, avg.exp > 0.25)
+
+# 3. Re-apply the cell type order to the 'id' column
+# This ensures ggplot respects your factor levels rather than alphabetical order
+plot_data$id <- factor(plot_data$id, levels = levels(scRNA_data_for_plot$cell_type_manual))
+plot_data$features.plot <- factor(plot_data$features.plot, levels = flat_markers)
+
+# 4. Create the Plot
+scanpy_style_plot <- ggplot(plot_data, aes(x = features.plot, y = id, size = pct.exp, color = avg.exp.scaled)) +
+  geom_point() +
+  scale_color_gradient(low = "grey95", high = "#8B0000") +
+  scale_size_continuous(range = c(0, 8)) +
+  scale_y_discrete(limits = rev(levels(plot_data$id))) +
+  theme_classic() +
+  labs(
+    x = "Marker Genes",
+    y = "Cell Type",
+    color = "Relative Expression\n(0-1 Scaled)",
+    size = "Percent Expressed"
+  ) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, face = "italic"),
+    axis.text.y = element_text(size = 10),
+    axis.title = element_blank(),
+    legend.position = "right",
+    legend.title = element_text(size = 9),
+    legend.text = element_text(size = 8),
+    legend.box = "vertical",
+    legend.direction = "vertical"
+  )
+
+scanpy_style_plot
+
+ggsave(
+    filename = file.path(fig_dir, "DotPlot_ScanpyLogic_Seurat.pdf"),
+    plot = scanpy_style_plot,
+    width = 10, height = 6
+)
+```
+
+### Figure S4G: Marker feature-density UMAPs
+
+A per-gene complement to the aggregate dot plot in Fig 2C, using kernel density
+of expression over the UMAP (`SCpubr::do_NebulosaPlot`). Each marker's
+high-density region coincides with its annotated cell type in Fig 2B.
+
+```{r}
+#| label: fig-marker-density-umap
+#| code-summary: "Marker feature-density UMAP grid (Fig S4G)"
+#| fig-width: 12
+#| fig-height: 16
+#| fig-cap: "Feature-density plots of representative cell-type markers across the UMAP embedding: neural stem/progenitor markers (*dpn*, *nerfin-1*, *Hey*), neuronal markers (*elav*, *ChAT*, *Gad1*, *VGlut*, *DAT*), and glial markers (*alrm*, *wrapper*, *moody*)."
+
+markers_featureplot <- c(
+    "dpn",      # Neuroblasts
+    "nerfin-1", # GMCs (Early)
+    "Hey",      # Newborn
+    "elav",     # Immature
+    "ChAT",     # Cholinergic
+    "Gad1",     # GABAergic
+    "VGlut",    # Glutamatergic
+    "DAT",      # Dopaminergic
+    "alrm",     # Astrocytes
+    "wrapper",  # Cortex Glia
+    "moody"     # Surface Glia
+)
+
+marker_featureplot_list <- lapply(
+    markers_featureplot,
+    function(gene) {
+
+        do_NebulosaPlot(
+            sample = scRNA_data,
+            features = gene,
+            plot_cell_borders = FALSE,
+            use_viridis = FALSE,
+            sequential.palette = "Reds",
+            legend.type = "colorbar",
+            legend.length = 10,
+            font.size = 11,
+            legend.title.face = "plain"
+        ) + theme(
+            plot.title = element_text(hjust = 0.5, size = 14)
+        ) + add_umap_arrows(
+            scRNA_data,
+            text_size = 2,
+            arrow_len = 2.5,
+            line_width = 0.5
+        )
+    }
+)
+
+marker_featureplot_grid <- wrap_plots(marker_featureplot_list, ncol = 3)
+
+marker_featureplot_grid_raster <- rasterise(
+    marker_featureplot_grid,
+    dpi = 600
+)
+
+ggsave(
+    filename = file.path(fig_dir, "Nebulosa_marker_umaps.png"),
+    plot = marker_featureplot_grid_raster,
+    width = 12,
+    height = 16,
+    units = "in",
+    device = "png",
+    dpi = 600
+)
+
+ggsave(
+    filename = file.path(fig_dir, "Nebulosa_marker_umaps.pdf"),
+    plot = marker_featureplot_grid_raster,
+    width = 12,
+    height = 16,
+    units = "in",
+    device = "pdf"
+)
+
+marker_featureplot_grid_raster
+```
+
+### Figure S4H: Transgene expression dot plot
+
+The sequenced larvae carried an NSC reporter (*worniu*-GAL4 > UAS-mCD8-GFP) and
+a glial reporter (*Repo*-LexA > LexAop-nls-tdTomato). Their transcripts
+partition cleanly by compartment: mCD8-GFP in the neuroblast lineage,
+nls-tdTomato in the glial cell types, consistent with the driver design and the
+marker-based annotation.
+
+```{r}
+#| label: fig-transgene-dotplot
+#| code-summary: "Reporter-transgene dot plot (Fig S4H)"
+#| fig-width: 6
+#| fig-height: 6
+#| fig-cap: "Dot plot of the mCD8-GFP (NSC) and nls-tdTomato (glial) reporter transcripts across annotated cell types. Dot size, percentage of expressing cells; colour, per-transgene min–max-scaled mean expression."
+
+# 1. Define the transgene features
+transgene_markers <- c("mCD8GFP", "tdTomato-NLS")
+
+# 2. Extract the raw (unscaled) data for these specific features
+transgene_data <- DotPlot(
+    scRNA_data_for_plot,
+    features = transgene_markers,
+    scale = FALSE
+)$data
+
+# 3. Apply Min-Max Scaling and Filter
+transgene_data <- transgene_data %>%
+  group_by(features.plot) %>%
+  mutate(avg.exp.scaled = (avg.exp - min(avg.exp)) / (max(avg.exp) - min(avg.exp) + 1e-10))
+
+# 4. Re-apply Factor Order
+transgene_data$id <- factor(
+    transgene_data$id,
+    levels = levels(scRNA_data_for_plot$cell_type_manual)
+)
+
+# 5. Create the Plot
+transgene_plot <- ggplot(transgene_data, aes(x = features.plot, y = id, size = pct.exp, color = avg.exp.scaled)) +
+  geom_point() +
+  scale_color_gradient(low = "grey95", high = "#8B0000") +
+  scale_size_continuous(range = c(1, 10), limits = c(10, 100), breaks = c(10, 25, 50, 75, 100)) +
+  scale_y_discrete(limits = rev(levels(transgene_data$id))) +
+  theme_classic() +
+  labs(
+    title = "Transgene Expression",
+    x = "Transgenes",
+    y = "Cell Type",
+    color = "Relative Exp\n(0-1 Scaled)",
+    size = "% Expressed (min 10%)"
+  ) +
+  theme(
+    axis.text.x = element_text(angle = 0, hjust = 0.5, face = "bold"),
+    axis.text.y = element_text(size = 10),
+    axis.title = element_blank(),
+    plot.title = element_text(hjust = 0.5, face = "bold")
+  )
+
+transgene_plot
+
+# 6. Save the Transgene Plot
+ggsave(
+    filename = file.path(fig_dir, "DotPlot_Transgenes_mCD8GFP_tdTomato.pdf"),
+    plot = transgene_plot,
+    width = 6, height = 6
+)
+```
+
+### Figure 2I: *Ldh* expression across cell types
+
+*Ldh* is the most strongly upregulated gene shared by the edgeR and hdWGCNA
+analyses of the NSC Complex I response (Fig 2D, 2G). Per-cell *Ldh* expression across NSCs,
+GMCs, astrocytes, surface glia and cortex glia, Control vs. Complex I (ND-75)
+RNAi; the significance annotations are the edgeR pseudobulk FDR for that contrast
+within each cell type (GMCs from the combined-GMC test).
+
+```{r}
+#| label: fig-ldh-celltype-expression-significance
+#| code-summary: "Ldh violin with edgeR significance labels (Fig 2I)"
+#| fig-width: 8
+#| fig-height: 4
+#| fig-cap: "Normalized *Ldh* expression in Control versus Complex I RNAi across five niche cell types. Violin width represents density of cells at each expression level; embedded boxplots show median and interquartile range. Stars represent the edgeR pseudobulk FDR (* < 0.05, ** < 0.01, *** < 0.001; ns, ≥ 0.05)."
+
+# Cell types shown in the violin plot
+ldh_target_celltypes <- c(
+    "Neuroblasts",
+    "Ganglion Mother Cells (Early)",
+    "Ganglion Mother Cells (Late)",
+    "Astrocytes",
+    "Surface Glia",
+    "Cortex Glia"
+)
+
+# Make the base violin plot
+plot_violin_ldh <- gene_exp_violin(
+    object = scRNA_data,
+    gene = "Ldh",
+    condition_col = "condition",
+    target_celltypes = ldh_target_celltypes,
+    colors = c("Control" = "grey70", "Dysfunction" = npg_colors[1])
+)
+
+
+# Pull the Ldh edgeR result for the cell types shown in the plot
+# GMCs are annotated from Combined_GMCs
+ldh_sig_df <- get_edgeR_star_labels(
+    gene = "Ldh",
+    result_dirs = c(
+        "Neuroblasts",
+        "Combined_GMCs",
+        "Astrocytes",
+        "Surface_Glia",
+        "Cortex_Glia"
+    ),
+    plot_labels = c(
+        "Neuroblasts",
+        "GMCs",
+        "Astrocytes",
+        "Surface Glia",
+        "Cortex Glia"
+    )
+)
+
+# Get y-positions for the labels from the plotted single-cell expression data
+ldh_expr_df <- FetchData(
+    scRNA_data,
+    vars = c("Ldh", "cell_type_manual", "condition")
+)
+colnames(ldh_expr_df) <- c("Expression", "CellType", "Condition")
+
+ldh_expr_df <- ldh_expr_df %>%
+    filter(CellType %in% ldh_target_celltypes) %>%
+    mutate(
+        PlotLabel = case_when(
+            CellType %in% c(
+                "Ganglion Mother Cells (Early)",
+                "Ganglion Mother Cells (Late)"
+            ) ~ "GMCs",
+            TRUE ~ as.character(CellType)
+        )
+    )
+
+# One shared y-position for all labels
+y_buffer <- diff(range(ldh_expr_df$Expression, na.rm = TRUE)) * 0.10
+if (!is.finite(y_buffer) || y_buffer <= 0) {
+    y_buffer <- 0.25
+}
+ldh_label_y <- max(ldh_expr_df$Expression, na.rm = TRUE) + y_buffer
+
+ldh_plot_labels <- c(
+    "Neuroblasts",
+    "GMCs",
+    "Astrocytes",
+    "Surface Glia",
+    "Cortex Glia"
+)
+
+ldh_sig_df <- ldh_sig_df %>%
+    mutate(
+        x = match(PlotLabel, ldh_plot_labels),
+        y = 4.65,
+        xmin = x - 0.28,
+        xmax = x + 0.28,
+        y_text = 4.75
+    ) %>%
+    filter(!is.na(x))
+
+plot_violin_ldh_signif <- plot_violin_ldh +
+    geom_segment(
+        data = ldh_sig_df,
+        aes(x = xmin, xend = xmax, y = y, yend = y),
+        inherit.aes = FALSE,
+        linewidth = 0.35
+    ) +
+    geom_text(
+        data = ldh_sig_df,
+        aes(x = x, y = y_text, label = label),
+        inherit.aes = FALSE,
+        size = 3.2,
+        fontface = "bold",
+        vjust = 0
+    ) +
+    scale_y_continuous(
+        breaks = c(0, 2, 4),
+        expand = expansion(mult = c(0.02, 0.02))
+    ) +
+    coord_cartesian(ylim = c(0, 5), clip = "off") +
+    labs(
+        title = NULL,
+        subtitle = NULL
+    ) +
+    theme(
+        panel.border = element_blank(),
+        axis.line.x = element_line(color = "black", linewidth = 0.4),
+        axis.line.y = element_line(color = "black", linewidth = 0.4),
+        legend.position = "bottom",
+        legend.title = element_text(size = 10),
+        legend.direction = "horizontal"
+    )
+
+plot_violin_ldh_signif_raster <- rasterise(
+    plot_violin_ldh_signif,
+    dpi = 600
+)
+
+ggsave(
+    filename = file.path(fig_dir, "Violin_Ldh_Expression_by_CellType_signif_labels.pdf"),
+    plot = plot_violin_ldh_signif_raster,
+    width = 8,
+    height = 4,
+    units = "in",
+    device = "pdf"
+)
+
+ggsave(
+    filename = file.path(fig_dir, "Violin_Ldh_Expression_by_CellType_signif_labels.png"),
+    plot = plot_violin_ldh_signif_raster,
+    width = 8,
+    height = 4,
+    units = "in",
+    device = "png",
+    dpi = 600
+)
+
+plot_violin_ldh_signif_raster
+```
+
+### Figure 4G: *Eaat1* / *Eaat2* expression across cell types
+
+*Eaat1* and *Eaat2* encode glial glutamate/aspartate transporters; *Eaat1* is
+one of the glial transporters required to sustain proliferation of Complex
+I-dysfunctional NSCs (Fig 4D, H-L). Per-cell expression of both in
+NSCs, surface glia and cortex glia, Control vs. Complex I RNAi.
+
+```{r}
+#| label: fig-eaat-celltype-expression
+#| code-summary: "Eaat1/Eaat2 violins by cell type (Fig 4G)"
+#| fig-width: 6
+#| fig-height: 6
+#| fig-cap: "Normalized *Eaat1* (top) and *Eaat2* (bottom) expression in NSCs, surface glia and cortex glia under Control RNAi (grey) and Complex I RNAi (red). Points, individual cells; violin width represents density of cells at each expression level; embedded boxplots show median and interquartile range (25th–75th percentiles)."
+
+eaat_target_celltypes <- c(
+    "Neuroblasts",
+    "Surface Glia",
+    "Cortex Glia"
+)
+
+eaat_colors <- c(
+    "Control" = "grey70",
+    "Dysfunction" = npg_colors[1]
+)
+
+eaat_y_limits <- c(0, 3.5)
+eaat_y_breaks <- c(0, 1, 2, 3)
+
+eaat_panel_theme <- theme(
+    panel.border = element_blank(),
+    axis.line.x = element_line(color = "black", linewidth = 0.4),
+    axis.line.y = element_line(color = "black", linewidth = 0.4),
+    plot.title = element_text(hjust = 0.5, size = 11, face = "plain")
+)
+
+plot_violin_eaat1 <- gene_exp_violin(
+    object = scRNA_data,
+    gene = "Eaat1",
+    condition_col = "condition",
+    target_celltypes = eaat_target_celltypes,
+    colors = eaat_colors
+) +
+    labs(
+        title = "Eaat1 Expression",
+        x = NULL,
+        y = "Normalized Expression"
+    ) +
+    coord_cartesian(ylim = eaat_y_limits, clip = "off") +
+    scale_y_continuous(
+        breaks = eaat_y_breaks,
+        expand = expansion(mult = c(0.02, 0.02))
+    ) +
+    eaat_panel_theme
+
+plot_violin_eaat2 <- gene_exp_violin(
+    object = scRNA_data,
+    gene = "Eaat2",
+    condition_col = "condition",
+    target_celltypes = eaat_target_celltypes,
+    colors = eaat_colors
+) +
+    labs(
+        title = "Eaat2 Expression",
+        x = NULL,
+        y = "Normalized Expression"
+    ) +
+    coord_cartesian(ylim = eaat_y_limits, clip = "off") +
+    scale_y_continuous(
+        breaks = eaat_y_breaks,
+        expand = expansion(mult = c(0.02, 0.02))
+    ) +
+    eaat_panel_theme
+
+# Relabel Neuroblasts to NSCs
+plot_violin_eaat1$data <- plot_violin_eaat1$data %>%
+    mutate(
+        PlotLabel = forcats::fct_recode(PlotLabel, "NSCs" = "Neuroblasts")
+    )
+
+plot_violin_eaat2$data <- plot_violin_eaat2$data %>%
+    mutate(
+        PlotLabel = forcats::fct_recode(PlotLabel, "NSCs" = "Neuroblasts")
+    )
+
+violin_eaat_plot <- (
+    plot_violin_eaat1 /
+    plot_violin_eaat2
+) +
+    plot_layout(
+        guides = "collect"
+    ) &
+    theme(
+        legend.position = "right",
+        legend.title = element_text(size = 10),
+        legend.direction = "vertical"
+    )
+
+violin_eaat_plot_raster <- rasterise(
+    violin_eaat_plot,
+    dpi = 600
+)
+
+ggsave(
+    filename = file.path(fig_dir, "Violin_Eaat1_Eaat2_Expression_by_CellType.pdf"),
+    plot = violin_eaat_plot_raster,
+    width = 6,
+    height = 6,
+    units = "in",
+    device = "pdf"
+)
+
+ggsave(
+    filename = file.path(fig_dir, "Violin_Eaat1_Eaat2_Expression_by_CellType.png"),
+    plot = violin_eaat_plot_raster,
+    width = 6,
+    height = 6,
+    units = "in",
+    device = "png",
+    dpi = 600
+)
+
+violin_eaat_plot_raster
+```
+
+### Figure S8E,F: Glial transmembrane transporter expression
+
+Baseline single-cell expression of amino-acid- and monocarboxylate-transporter
+genes across cell types: NSCs, astrocytes, surface glia and cortex
+glia. Gene expression is z-scored per gene.
+
+```{r}
+#| label: fig-transporter-dotplots
+#| code-summary: "Glial transporter dot plots (Fig S8E,F)"
+#| fig-width: 14
+#| fig-height: 7
+#| fig-cap: "Single-cell expression of (E) amino-acid-transporter and (F) monocarboxylate-transporter genes in NSCs, astrocytes, surface glia and cortex glia. Dot size represents percentage of cells expressing the gene, while colour represents z-scored average expression"
+
+transporter_sets <- read_csv(
+    here("reports", "resources", "transporter_gene_sets.csv"),
+    show_col_types = FALSE
+)
+
+transporter_celltypes <- c("Neuroblasts", "Astrocytes", "Surface Glia", "Cortex Glia")
+
+transporter_obj <- subset(
+    scRNA_data,
+    subset = cell_type_manual %in% transporter_celltypes
+)
+transporter_obj$cell_type_manual <- factor(
+    transporter_obj$cell_type_manual, levels = transporter_celltypes
+)
+Idents(transporter_obj) <- transporter_obj$cell_type_manual
+
+# Seurat DotPlot z-scores expression per feature (scale = TRUE, the default)
+transporter_dotplot <- function(genes, title) {
+    DotPlot(
+        transporter_obj,
+        features = intersect(genes, rownames(transporter_obj)),
+        cluster.idents = FALSE
+    ) +
+        scale_y_discrete(limits = rev(transporter_celltypes)) +
+        labs(title = title, x = NULL, y = NULL) +
+        theme_classic() +
+        theme(
+            axis.text.x = element_text(angle = 45, hjust = 1, size = 7, face = "italic"),
+            plot.title  = element_text(hjust = 0.5, size = 11)
+        )
+}
+
+p_transporter_aa  <- transporter_dotplot(
+    transporter_sets$gene[transporter_sets$class == "amino_acid"],
+    "Amino Acid Transporters"
+)
+p_transporter_mct <- transporter_dotplot(
+    transporter_sets$gene[transporter_sets$class == "monocarboxylate"],
+    "Monocarboxylate Transporters"
+)
+
+transporter_grid <- (p_transporter_aa / p_transporter_mct) +
+    plot_layout(guides = "collect") &
+    scale_size(range = c(0, 8), limits = c(0, 100), name = "Percent Expressed") &
+    scale_color_gradient(low = "grey90", high = "#8B0000", limits = c(-2, 2),
+                         name = "Average Expression") &
+    theme(legend.position = "right")
+
+transporter_grid_raster <- rasterise(transporter_grid, dpi = 600)
+
+for (dev in c("pdf", "png")) {
+    ggsave(
+        filename = file.path(fig_dir, paste0("Transporter_Expression_S8EF.", dev)),
+        plot = transporter_grid_raster, width = 14, height = 7, units = "in",
+        device = dev, dpi = if (dev == "png") 600 else 300
+    )
+}
+
+transporter_grid_raster
+```
+
+
+## edgeR pseudobulk differential expression figures
+
+### Figure 2D: Neuroblast pseudobulk volcano
+
+Counts were pooled into one pseudobulk profile per sample and tested with edgeR
+quasi-likelihood: `filterByExpr` gene filtering, TMM normalization, robust
+dispersion, a `batch + condition` design. Genes are considered significant at
+FDR < 0.05 and |log2FC| ≥ 1. Genes whose apparent change rests on fewer than
+five expressing cells (`is_artifact`) are flagged and excluded.
+
+```{r}
+#| label: fig-deg-volcano-neuroblasts
+#| code-summary: "Neuroblast edgeR volcano (Fig 2D)"
+#| fig-width: 6
+#| fig-height: 6
+#| fig-cap: "Pseudobulk edgeR volcano (Complex I RNAi vs. Control) in Neuroblasts: log2 fold change against −log10 FDR, one point per gene. Colour indicates genes passing the FDR threshold, the log2 fold-change threshold, both, or neither (significant: FDR < 0.05 and |log2FC| ≥ 1). Selected genes are labelled; *Ldh* and *ND-75* are highlighted."
+
+volcano_plot_neuroblasts <- deg_volcano_plot(
+    cell_type        = "Neuroblasts",
+    results_dir      = deg_results_dir,
+    plot_dir         = deg_plot_dir,
+    lfc_threshold    = 1.0,
+    fdr_threshold    = 0.05,
+    label_prop       = 0.8,
+    highlight_genes  = c("Ldh", "ND-75"),
+    remove_artifacts = TRUE,
+    exclude_patterns = gene_patterns_to_exclude
+)
+
+for (dev in c("pdf", "png")) {
+    ggsave(
+        filename = file.path(deg_plot_dir, paste0("Volcano_DEGs_Neuroblasts.", dev)),
+        plot = volcano_plot_neuroblasts, width = 6, height = 6, units = "in",
+        device = dev, dpi = if (dev == "png") 600 else 300
+    )
+}
+
+volcano_plot_neuroblasts
+```
+
+### Figure S5A,B: GMC and combined-glia volcanoes
+
+Pseudobulk edgeR differential expression for the
+combined Ganglion Mother Cells (A) and the combined glial cell types (B). Axes, significance thresholds, colour categories and the artefact /
+non-coding display filters are as in Fig 2D.
+
+```{r}
+#| label: fig-deg-volcano-gmc-glia
+#| code-summary: "GMC and combined-glia edgeR volcanoes (Fig S5A,B)"
+#| fig-width: 12
+#| fig-height: 6
+#| fig-cap: "Pseudobulk edgeR volcanoes for the Complex I RNAi vs. Control contrast in (A) combined Ganglion Mother Cells and (B) combined glial cell types: log2 fold change against −log10 FDR, one point per gene. Colour indicates genes passing the FDR threshold, the log2 fold-change threshold, both, or neither (significant: FDR < 0.05 and |log2FC| ≥ 1)."
+
+volcano_s5 <- lapply(c("Combined GMCs", "Combined Glia"), function(ct) {
+    p <- deg_volcano_plot(
+        cell_type        = ct,
+        results_dir      = deg_results_dir,
+        plot_dir         = deg_plot_dir,
+        lfc_threshold    = 1.0,
+        fdr_threshold    = 0.05,
+        label_prop       = 0.8,
+        highlight_genes  = NULL,
+        remove_artifacts = TRUE,
+        exclude_patterns = gene_patterns_to_exclude
+    )
+    stub <- gsub(" ", "_", ct)
+    for (dev in c("pdf", "png")) {
+        ggsave(
+            filename = file.path(deg_plot_dir, paste0("Volcano_DEGs_", stub, ".", dev)),
+            plot = p, width = 6, height = 6, units = "in",
+            device = dev, dpi = if (dev == "png") 600 else 300
+        )
+    }
+    p
+})
+
+patchwork::wrap_plots(volcano_s5, ncol = 2)
+```
+
+
+## Metabolomics figures
+
+### Figure 4F: Differential metabolite abundance volcano
+
+Untargeted LC–MS metabolomics of whole-CNS samples from wandering larvae
+expressing Control or Complex I (ND-42) RNAi in NSCs with six biological replicates
+per condition. Abundances were normalized to an internal standard, total-sum
+normalized, log2-transformed with a small offset, and tested per metabolite with
+limma and empirical-Bayes moderation
+(`metabolomics/00_differential_abundance.R`). Metabolite-level differences are
+significant at p < 0.05 and
+|log2FC| ≥ 0.5.
+
+```{r}
+#| label: fig-metabolomics-volcano
+#| code-summary: "Differential metabolite abundance volcano (Fig 4F)"
+#| fig-width: 8
+#| fig-height: 8
+#| fig-cap: "Differential metabolite abundance (limma, empirical-Bayes moderation) between Control and Complex I RNAi whole-CNS samples: log2 fold change against −log10 nominal p-value, one point per metabolite. Dashed lines represent |log2FC| ≥ 0.5 and p < 0.05. Colour distinguishes metabolites passing the fold-change threshold, the p-value threshold, both, or neither; Glycolysis-associated metabolites are marked separately."
+
+metabolomics_volcano <- metabolomics_volcano_plot(
+    res_df = metabolomics_data
+)
+
+metabolomics_volcano
+
+ggsave(
+    filename = file.path(fig_dir, "Metabolomics_Volcano_Plot.png"),
+    plot = metabolomics_volcano,
+    width = 8,
+    height = 8,
+    units = "in",
+    device = "png",
+    dpi = 600
+)
+
+ggsave(
+    filename = file.path(fig_dir, "Metabolomics_Volcano_Plot.pdf"),
+    plot = metabolomics_volcano,
+    width = 8,
+    height = 8,
+    units = "in",
+    device = "pdf"
+)
+```
+
+### Figure 4E: Metabolite-set enrichment
+
+A pathway-level summary of the differential metabolite abundance analysis. All detected metabolites were
+ranked by signed −log10 p and tested against pathway sets defined by metabolite
+class with fgsea (`metabolomics/01_pathway_enrichment.R`).
+
+```{r}
+#| label: fig-metabolomics-msea-dotplot
+#| code-summary: "Metabolite-set enrichment dot plot (Fig 4E)"
+#| fig-width: 8
+#| fig-height: 8
+#| fig-cap: "Metabolic pathway enrichment (fgsea) of differential metabolite abundance in Complex I RNAi versus Control. Normalized enrichment score is represented by the x-axis and point size represents the nominal −log10 p-value"
+
+msea_results <- read_csv(
+    file.path(metab_processed_dir, "metabolomics_fgsea_results.csv"),
+    show_col_types = FALSE
+)
+
+msea_dot_plot <- function(msea_results, p_threshold = 0.1) {
+
+    plot_df <- msea_results %>%
+        filter(!is.na(NES)) %>%
+        mutate(
+            neg_log10_p = -log10(pval),
+            p_label = case_when(
+                pval < 0.001 ~ "p<0.001",
+                pval < 0.05 ~ paste0("p=", formatC(pval, digits = 3, format = "f")),
+                pval < 0.1 ~ paste0("p=", formatC(pval, digits = 2, format = "f")),
+                TRUE ~ ""
+            )
+        ) %>%
+        arrange(NES)
+
+    plot_df$pathway <- factor(plot_df$pathway, levels = plot_df$pathway)
+
+    p <- ggplot(plot_df, aes(x = NES, y = pathway)) +
+        geom_vline(xintercept = 0, linetype = "dashed", color = "grey50") +
+        geom_point(
+            aes(size = neg_log10_p, fill = NES),
+            shape = 21,
+            color = "black",
+            stroke = 0.5
+        ) +
+        geom_text(
+            aes(
+                x = ifelse(NES > 0, NES + 0.2, NES - 0.2),
+                label = p_label,
+                hjust = ifelse(NES > 0, 0, 1)
+            ),
+            size = 4,
+            fontface = "italic",
+            family = "sans"
+        ) +
+        scale_fill_gradient2(
+            low = npg_colors[4],
+            mid = "white",
+            high = npg_colors[1],
+            midpoint = 0,
+            name = "NES"
+        ) +
+        scale_size_continuous(
+            range = c(3, 10),
+            name = expression(-log[10]~p)
+        ) +
+        scale_x_continuous(
+            limits = c(-2.5, 2.5),
+            expand = expansion(mult = c(0.1, 0.1))
+        ) +
+        scale_y_discrete(
+            expand = expansion(mult = c(0.05, 0.05))
+        ) +
+        labs(x = "Normalized Enrichment Score (NES)", y = NULL) +
+        theme_classic(base_family = "sans") +
+        theme(
+            text = element_text(family = "sans"),
+            panel.grid.minor = element_blank(),
+            panel.grid.major.y = element_blank(),
+            axis.line = element_line(linewidth = 1.2),
+            axis.ticks = element_line(linewidth = 1.2),
+            axis.text = element_text(size = 12, family = "sans"),
+            axis.title = element_text(size = 14, family = "sans"),
+            legend.text = element_text(family = "sans"),
+            legend.title = element_text(family = "sans"),
+            legend.position = "right",
+        )
+
+    return(p)
+}
+
+p_msea_dot <- msea_dot_plot(msea_results)
+
+ggsave(
+    filename = file.path(fig_dir, "MSEA_Dot_Plot.png"),
+    plot = p_msea_dot,
+    width = 8,
+    height = 8,
+    units = "in",
+    device = "png",
+    dpi = 600
+)
+
+ggsave(
+    filename = file.path(fig_dir, "MSEA_Dot_Plot.pdf"),
+    plot = p_msea_dot,
+    width = 8,
+    height = 8,
+    units = "in",
+    device = "pdf"
+)
+
+p_msea_dot
+```
+
+### Figure S8I: Pathway-grouped metabolite heatmap
+
+The full metabolite-by-replicate matrix behind Fig 4E,F. Columns are ordered by log2 fold change within each pathway and neither axis is clustered.
+
+```{r}
+#| label: fig-metabolomics-heatmap
+#| code-summary: "Pathway-grouped metabolite heatmap (Fig S8I)"
+#| fig-width: 12
+#| fig-height: 6
+#| fig-cap: "Relative metabolite abundance (per-metabolite Z-score across samples) in Control versus Complex I RNAi whole-CNS samples. Rows represent biological replicates and columns represent metabolites grouped by metabolic pathway (coloured annotation bar). Blue and red indicate lower and higher relative abundance."
+
+metabolomics_heatmap <- function(log_mat, res_df) {
+
+    control_cols <- grep("mcherry", colnames(log_mat), value = TRUE)
+    nd42_cols <- grep("ND42", colnames(log_mat), value = TRUE)
+
+    # Z-score normalization
+    mat_scaled <- t(scale(t(log_mat)))
+
+    # Filter valid rows
+    keep_rows <- complete.cases(mat_scaled) &
+        rowSums(is.finite(mat_scaled)) == ncol(mat_scaled)
+    mat_scaled <- mat_scaled[keep_rows, ]
+
+    # Order by pathway then logFC
+    pathway_df <- res_df %>%
+        filter(gene %in% rownames(mat_scaled)) %>%
+        select(gene, Pathway, logFC) %>%
+        arrange(Pathway, desc(logFC))
+
+    mat_scaled <- mat_scaled[pathway_df$gene, ]
+
+    # TRANSPOSE: samples become rows, metabolites become columns
+    mat_scaled <- t(mat_scaled)
+
+    # Row annotation (Condition - samples are now rows)
+    row_anno <- rowAnnotation(
+        " " = c(
+            rep("Control", length(control_cols)),
+            rep("ND42", length(nd42_cols))
+        ),
+        col = list(
+            " " = c("Control" = npg_colors[2], "ND42" = npg_colors[1])
+        ),
+        simple_anno_size = unit(4, "mm"),
+        show_legend = FALSE
+    )
+
+    # Column annotation (Pathway - metabolites are now columns)
+    pathway_colors <- setNames(
+        pal_d3("category20")(length(unique(pathway_df$Pathway))),
+        unique(pathway_df$Pathway)
+    )
+
+    col_anno <- HeatmapAnnotation(
+        " " = pathway_df$Pathway,
+        col = list(" " = pathway_colors),
+        simple_anno_size = unit(4, "mm"),
+        annotation_legend_param = list(
+            nrow = 2,
+            title_gp = gpar(fontfamily = "sans", fontsize = 10),
+            labels_gp = gpar(fontfamily = "sans", fontsize = 8),
+            title_postiion = "topcenter"
+        )
+    )
+
+    col_fun <- colorRamp2(c(-2, 0, 2), c("#3C5488", "white", "#E64B35"))
+
+    # Row labels (samples)
+    row_labels <- rownames(mat_scaled) %>%
+        gsub(".Area", "", .) %>%
+        gsub("_", " ", .)
+
+    ht <- Heatmap(
+        mat_scaled,
+        name = "Z-score",
+        col = col_fun,
+        cluster_rows = FALSE,
+        cluster_columns = FALSE,
+        show_row_names = TRUE,
+        show_column_names = TRUE,
+        row_names_side = "right",
+        row_labels = row_labels,
+        row_names_gp = gpar(fontfamily = "sans", fontsize = 10),
+        column_names_gp = gpar(fontfamily = "sans", fontsize = 7),
+        column_names_rot = 90,
+        top_annotation = col_anno,
+        left_annotation = row_anno,
+        column_split = pathway_df$Pathway,
+        column_title_gp = gpar(fontfamily = "sans", fontsize = 10),
+        column_title_rot = 90,
+        row_split = c(
+            rep("Control", length(control_cols)),
+            rep("ND42", length(nd42_cols))
+        ),
+        row_title_gp = gpar(fontfamily = "sans", fontsize = 12),
+        row_title_rot = 0,
+        heatmap_legend_param = list(
+            title_gp = gpar(fontfamily = "sans", fontsize = 12),
+            labels_gp = gpar(fontfamily = "sans", fontsize = 10),
+            legend_direction = "horizontal",
+            title_position = "topcenter"
+        ),
+        row_gap = unit(2, "mm"),
+        column_gap = unit(2, "mm")
+    )
+
+    return(ht)
+}
+
+metabolomics_pathway_ht <- metabolomics_heatmap(
+    log_mat = metabolomics_log_mat,
+    res_df = metabolomics_data
+)
+
+pdf(file.path(fig_dir, "Metabolomics_Heatmap.pdf"), width = 12, height = 6)
+draw(
+    metabolomics_pathway_ht,
+    merge_legend = TRUE,
+    heatmap_legend_side = "bottom",
+    annotation_legend_side = "bottom",
+    legend_grouping = "original"
+)
+invisible(dev.off())
+
+png(file.path(fig_dir, "Metabolomics_Heatmap.png"), width = 12, height = 6, units = "in", res = 600)
+draw(
+    metabolomics_pathway_ht,
+    merge_legend = TRUE,
+    heatmap_legend_side = "bottom",
+    annotation_legend_side = "bottom",
+    legend_grouping = "original"
+)
+invisible(dev.off())
+
+draw(
+    metabolomics_pathway_ht,
+    merge_legend = TRUE,
+    heatmap_legend_side = "bottom",
+    annotation_legend_side = "bottom",
+    legend_grouping = "original"
+)
+```
+
+## Software
+
+Figure panels in this report were assembled in R. Single-cell objects are
+handled with `Seurat`, and marker feature-density UMAPs with `SCpubr`. Pseudobulk
+differential expression is read from `edgeR` output ([`edgeR/`](../edgeR/)).
+Differential metabolite abundance and pathway enrichment are read from `limma`
+and `fgsea` output ([`metabolomics/`](../metabolomics/)). Volcanoes use
+`EnhancedVolcano` with `ggrepel` labels. The metabolite heatmap uses
+`ComplexHeatmap` and `circlize`. The Fig S8E,F transporter gene sets are read
+from the [`transporter_gene_sets.csv`](resources/transporter_gene_sets.csv) file. Data handling and layout use the
+`tidyverse`, `patchwork`, `ggsci`, `scales` and `ggrastr`. The cell-filtering
+thresholds, the pseudobulk model, and the metabolomics pipeline are defined in
+Materials and Methods and the upstream pipeline modules. Package versions are in
+the Session Information below.
+
+::: {.callout-note appearance="simple" collapse="true"}
+## Session Information
+
+```{r}
+#| label: session-info
+#| echo: false
+
+sessionInfo()
+```
+
+:::

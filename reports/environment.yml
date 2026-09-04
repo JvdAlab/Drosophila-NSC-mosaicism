@@ -1,0 +1,52 @@
+name: reports_pipeline
+
+channels:
+  - conda-forge
+  - bioconda
+
+dependencies:
+  - r-base=4.4.3
+  # --- CRAN ---
+  - r-tidyverse=2.0.0
+  - r-conflicted=1.2.0
+  - r-ggplot2=4.0.2
+  - r-ggrepel=0.9.8
+  - r-cowplot=1.2.0
+  - r-patchwork=1.3.2
+  - r-scales=1.4.0
+  - r-ggsci=3.2.0
+  - r-here=1.0.2
+  - r-matrix=1.7_4
+  - r-reactable=0.4.5
+  - r-dt=0.34.0
+  - r-htmltools=0.5.9
+  - r-future=1.70.0
+  - r-knitr=1.51
+  - r-rmarkdown=2.30
+  - r-igraph=2.1.4
+  - r-ggraph=2.2.2
+  - r-tidygraph=1.3.1
+  - r-eulerr=7.0.4
+  - r-gridextra=2.3
+  - r-reticulate=1.45.0
+  - r-circlize=0.4.17
+  - r-enrichr=3.4
+  - r-harmony=1.2.4
+  # --- plot_manuscript_figures.qmd single-cell figure stack ---
+  - r-scpubr
+  - r-ggrastr
+  # --- Bioconductor 3.20 (paired with R 4.4.x) + GitHub ---
+  - r-seurat=5.4.0
+  - r-hdwgcna=0.4.11
+  - bioconductor-wgcna=1.74
+  - bioconductor-ucell=2.10.1
+  - bioconductor-geneoverlap=1.42.0
+  - bioconductor-org.dm.eg.db=3.20.0
+  - bioconductor-annotationdbi=1.68.0
+  - bioconductor-go.db=3.20.0
+  - bioconductor-clusterprofiler=4.14.6
+  - bioconductor-enrichplot=1.26.6
+  - bioconductor-gosemsim=2.32.0
+  - bioconductor-rrvgo=1.18.0
+  - bioconductor-enhancedvolcano=1.24.0
+  - bioconductor-complexheatmap=2.22.0

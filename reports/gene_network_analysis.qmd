@@ -1,0 +1,2244 @@
+---
+title: "Gene network analysis for Drosophila NSC mosaicism"
+author: "Abhilesh Dhawanjewar"
+date: "2026-08-28"
+#date: "`r format(Sys.time(), '%Y-%m-%d')`"
+format:
+    html:
+        code-fold: true
+        embed-resources: true
+        page-layout: full
+        toc: true
+        toc-depth: 3
+        toc-title: "Contents"
+        theme: cosmo
+        df-print: kable
+execute:
+    echo: true
+    warning: false
+    message: false
+    error: false
+    cache: false
+    freeze: auto
+---
+
+```{=html}
+<style>
+.cell-output-display img,
+.quarto-figure img,
+figure.figure > img { cursor: zoom-in; }
+#imgzoom { position: fixed; inset: 0; z-index: 10000; display: none;
+  background: rgba(0,0,0,.92); overflow: hidden; touch-action: none; }
+#imgzoom.open { display: block; }
+#imgzoom img { position: absolute; left: 50%; top: 50%;
+  max-width: 96vw; max-height: 92vh; width: auto; height: auto;
+  will-change: transform; user-select: none; -webkit-user-drag: none; cursor: grab; }
+#imgzoom.grabbing img { cursor: grabbing; }
+#imgzoom .zoom-hint { position: fixed; left: 50%; bottom: 14px;
+  transform: translateX(-50%); color: #cfcfcf;
+  font: 12px/1.4 system-ui, -apple-system, sans-serif;
+  background: rgba(0,0,0,.55); padding: 5px 12px; border-radius: 999px; }
+</style>
+<script>
+(function () {
+  var ov = document.createElement("div"); ov.id = "imgzoom";
+  var im = document.createElement("img");
+  var hint = document.createElement("div"); hint.className = "zoom-hint";
+  hint.textContent = "scroll to zoom · drag to pan · click background or Esc to close";
+  ov.appendChild(im); ov.appendChild(hint);
+  (document.body || document.documentElement).appendChild(ov);
+
+  var s = 1, tx = 0, ty = 0, drag = false, px = 0, py = 0;
+  function draw() {
+    im.style.transform = "translate(-50%,-50%) translate(" + tx + "px," + ty + "px) scale(" + s + ")";
+  }
+  function openZoom(src) {
+    im.src = src; s = 1; tx = 0; ty = 0; draw();
+    ov.classList.add("open"); document.documentElement.style.overflow = "hidden";
+  }
+  function closeZoom() {
+    ov.classList.remove("open"); document.documentElement.style.overflow = "";
+    im.removeAttribute("src");
+  }
+  document.addEventListener("click", function (e) {
+    var t = e.target;
+    if (t && t.tagName === "IMG" && !ov.contains(t) &&
+        t.closest(".cell-output-display, .quarto-figure, figure.figure")) {
+      openZoom(t.currentSrc || t.src);
+    }
+  });
+  ov.addEventListener("click", function (e) { if (e.target === ov || e.target === hint) closeZoom(); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeZoom(); });
+  ov.addEventListener("wheel", function (e) {
+    e.preventDefault();
+    var r = ov.getBoundingClientRect();
+    var ox = e.clientX - r.left - r.width / 2 - tx;
+    var oy = e.clientY - r.top - r.height / 2 - ty;
+    var ns = Math.min(20, Math.max(1, s * (e.deltaY < 0 ? 1.2 : 1 / 1.2)));
+    tx -= ox * (ns / s - 1); ty -= oy * (ns / s - 1); s = ns;
+    if (s === 1) { tx = 0; ty = 0; }
+    draw();
+  }, { passive: false });
+  ov.addEventListener("pointerdown", function (e) {
+    if (e.target !== im) return;
+    drag = true; px = e.clientX - tx; py = e.clientY - ty;
+    ov.classList.add("grabbing"); ov.setPointerCapture(e.pointerId);
+  });
+  ov.addEventListener("pointermove", function (e) {
+    if (!drag) return; tx = e.clientX - px; ty = e.clientY - py; draw();
+  });
+  ov.addEventListener("pointerup", function () { drag = false; ov.classList.remove("grabbing"); });
+})();
+</script>
+```
+
+*Click on the gene names to open FlyBase reports in a new tab.*
+
+
+```{r}
+#| label: preamble
+#| cache: false
+#| code-summary: "Setup: libraries, data loading, reshaping, and helper functions"
+
+# ── Libraries ───────────────────────────────────────────────────
+
+library(here)
+
+library(Seurat)
+library(hdWGCNA)
+library(WGCNA)
+library(org.Dm.eg.db)
+
+library(patchwork)
+library(EnhancedVolcano)
+library(circlize)
+library(ComplexHeatmap)
+library(ggraph)
+library(tidygraph)
+library(DT)
+library(reactable)
+library(htmltools)
+
+library(tidyverse)
+library(conflicted)
+
+conflicts_prefer(
+  dplyr::filter, dplyr::rename, dplyr::desc, dplyr::select, dplyr::slice,
+  base::intersect, base::setdiff, base::union,
+  .quiet = TRUE
+)
+
+GLOBAL_SEED <- 42L
+set.seed(GLOBAL_SEED)
+
+# ── Load pipeline outputs (edgeR / hdWGCNA / SCENIC) + canonical module labels ───
+
+# Path Definitions
+# NOTE: the pySCENIC pipeline documents its outputs under results/pyscenic/
+# (pySCENIC/dvc.yaml, pySCENIC/README.md)
+scenic_dir <- here::here("results", "pyscenic")
+deg_results_dir <- here::here("results", "edgeR", "edgeR_results")
+wgcna_dir <- here::here("results", "hdWGCNA")
+output_dir <- here::here("results", "hdWGCNA", "gene_network_analysis")
+dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
+
+# This report consumes the derived outputs of the scRNA / edgeR / hdWGCNA /
+# pySCENIC pipeline modules. Those results/ trees are regenerated by the
+# pipelines
+scRNA_nb_subset_rds <- here::here(
+  "results", "scRNA", "scRNA_objects",
+  "scRNA_data_QC_filtered_w_scVI_latent_annotated_nb_subset_seurat.rds"
+)
+module_labels_csv <- here::here("hdWGCNA", "resources", "hdWGCNA_module_manuscript_labels.csv")
+.needed <- c(
+  scenic_dir, wgcna_dir,
+  file.path(deg_results_dir, "Neuroblasts"),
+  scRNA_nb_subset_rds,
+  module_labels_csv,
+  here::here("pySCENIC", "resources", "pyscenic")
+)
+.missing <- .needed[!file.exists(.needed)]
+if (length(.missing) > 0) {
+  stop(
+    "gene_network_analysis.qmd inputs not found:\n  ",
+    paste(.missing, collapse = "\n  "),
+    "\nRender from the analysis environment -- see reports/README.md."
+  )
+}
+
+# Load Expression & Network Data
+# scRNA_data_nb_subset: the annotated Seurat object from
+# scRNA_pipeline/06_convert_adata_to_seurat.R, subset to the Neuroblast
+# population -- subset(obj, subset = cell_type_manual == "Neuroblasts").
+# See reports/README.md ("Neuroblast-subset objects") for the one-line recipe.
+scRNA_data_nb_subset <- readRDS(scRNA_nb_subset_rds)
+
+deg_results <- read_tsv(
+  file.path(
+    deg_results_dir,
+    "Neuroblasts",
+    "Neuroblasts_edgeR_results.tsv"
+  ),
+  show_col_types = FALSE
+)
+hdWGCNA_results <- readRDS(
+  here(
+    wgcna_dir,
+    "hdWGCNA_neuroblast_complete_analysis_with_condition.rds"
+  )
+)
+nb_modules <- GetModules(hdWGCNA_results)
+
+module_labels_tbl <- read_csv(module_labels_csv, show_col_types = FALSE)
+module_labels_canonical <- setNames(module_labels_tbl$label, module_labels_tbl$module)
+
+wgcna_name <- as.character(hdWGCNA_results@misc$active_wgcna)
+
+hdWGCNA_results@misc[[wgcna_name]]$wgcna_net$TOMFiles <- file.path(wgcna_dir, "NB_Network_TOM.rda")
+
+# Load SCENIC resources.
+scenic_resources_dir <- here::here("pySCENIC", "resources", "pyscenic")
+global_rescue_df <- read_csv(
+  file.path(scenic_resources_dir, "global_pyscenic_rescue_map.csv"),
+  show_col_types = FALSE
+)
+
+scenic_nb_results_df <- read.csv(
+  here(
+    scenic_dir,
+    "top_regulons_annotated.csv"
+  ),
+  stringsAsFactors = FALSE
+)
+
+regulons_raw <- read.csv(
+    file.path(scenic_dir, "ctx_pruning_results.csv"),
+    stringsAsFactors = FALSE,
+    skip = 2,
+    header = TRUE
+)
+
+auc_mtx <- read.csv(
+    file.path(scenic_dir, "auc_matrix.csv"),
+    row.names = 1, check.names = FALSE
+)
+
+# ── Reshape: SCENIC regulon lists, AUC alignment, condition factor, FlyBase IDs ───
+
+# Parse the SCENIC ctx output into regulon target lists,
+# align the AUC matrix to the Neuroblast object,
+# derive the condition factor and the working regulon subsets,
+# then attach FlyBase IDs to every gene-keyed table.
+
+# Strip a trailing pySCENIC (+)/(-) direction suffix while preserving any
+# parentheses that are part of the gene name, e.g. E(spl)m3-HLH(+) -> E(spl)m3-HLH.
+strip_regulon_sign <- function(x) sub("\\([+-]\\)$", "", x)
+
+# ── Build regulons_list from ctx output ──────────────────────────────────────
+
+colnames(regulons_raw)[3:10] <- c(
+    "AUC", "NES", "MotifSimilarityQvalue",
+    "OrthologousIdentity", "Annotation",
+    "Context", "TargetGenes", "RankAtMax"
+)
+
+stopifnot("TF"          %in% colnames(regulons_raw))
+stopifnot("TargetGenes" %in% colnames(regulons_raw))
+
+parse_targets_r <- function(raw) {
+    if (is.na(raw) || raw == "") return(character(0))
+    genes <- regmatches(raw, gregexpr("'([^']+)'", raw))[[1]]
+    genes <- gsub("'", "", genes)
+    if (length(genes) == 0) return(character(0))
+    genes[seq(1, length(genes), by = 2)]
+}
+
+regulons_raw_clean <- regulons_raw[
+    !is.na(regulons_raw$TF) & !is.na(regulons_raw$TargetGenes),
+]
+
+regulons_list <- tapply(
+    regulons_raw_clean$TargetGenes,
+    paste0(regulons_raw_clean$TF, "(+)"),
+    function(x) unique(unlist(lapply(x, parse_targets_r)))
+)
+
+# ── AUC / expression / condition setup ───────────────────────────────────────
+
+if ("Ldh" %in% rownames(scRNA_data_nb_subset)) {
+    target_gene <- "Ldh"
+} else if ("ImpL3" %in% rownames(scRNA_data_nb_subset)) {
+    target_gene <- "ImpL3"
+} else {
+    stop("Neither Ldh nor ImpL3 found. Check gene naming.")
+}
+
+common_cells <- intersect(rownames(auc_mtx), colnames(scRNA_data_nb_subset))
+auc_mtx      <- auc_mtx[common_cells, , drop = FALSE]
+
+target_expr <- as.numeric(
+    GetAssayData(scRNA_data_nb_subset, assay = "RNA", layer = "data")[
+        target_gene, common_cells
+    ]
+)
+
+condition <- factor(
+    scRNA_data_nb_subset$condition[
+        match(common_cells, colnames(scRNA_data_nb_subset))
+    ],
+    levels = c("Control", "ND75-KD")
+)
+
+# Lookup: clean TF name → AUC matrix column name (retains (+) suffix)
+tf_to_col <- setNames(
+    colnames(auc_mtx),
+    strip_regulon_sign(colnames(auc_mtx))
+)
+
+# ── Working subsets ───────────────────────────────────────────────────────────
+# All statistics already computed by pySCENIC/04_compute_regulon_metrics.py
+
+top_up_regs_df <- scenic_nb_results_df %>%
+    filter(rank_biserial_r > 0) %>%
+    arrange(desc(rank_biserial_r))
+
+top_up_regs     <- top_up_regs_df$TF                    # clean names
+top_up_regs_auc <- paste0(top_up_regs_df$TF, "(+)")     # AUC matrix keys
+
+top_regulons    <- head(top_up_regs_auc, 40)            # for heatmap
+
+ldh_coupled_tfs <- scenic_nb_results_df %>%
+    filter(
+        rank_biserial_r > 0,
+        ldh_fdr         < 0.05,
+        ldh_delta_rho   > 0.2
+    ) %>%
+    arrange(desc(ldh_delta_rho)) %>%
+    pull(TF)
+
+ldh_coupled_regs <- paste0(ldh_coupled_tfs, "(+)")
+
+# ── Attach FlyBase IDs to every gene-keyed table ─────────────────────────────
+
+all_symbols <- unique(c(
+    deg_results$gene,
+    nb_modules$gene_name,
+    global_rescue_df$Original_Symbol,
+    strip_regulon_sign(scenic_nb_results_df$TF)
+))
+
+map_alias <- tryCatch({
+    AnnotationDbi::select(org.Dm.eg.db, keys = all_symbols,
+                          columns = "FLYBASE", keytype = "ALIAS")
+}, error = function(e) NULL)
+
+map_symbol <- tryCatch({
+    AnnotationDbi::select(org.Dm.eg.db, keys = all_symbols,
+                          columns = "FLYBASE", keytype = "SYMBOL")
+}, error = function(e) NULL)
+
+global_annotation_map <- bind_rows(
+    map_alias  %>% dplyr::rename(gene = ALIAS,  fb_id = FLYBASE),
+    map_symbol %>% dplyr::rename(gene = SYMBOL, fb_id = FLYBASE)
+) %>%
+    filter(!is.na(fb_id)) %>%
+    distinct(gene, .keep_all = TRUE)
+
+deg_results <- deg_results %>%
+    dplyr::select(-any_of("fb_id")) %>%
+    left_join(global_annotation_map, by = "gene")
+
+nb_modules <- nb_modules %>%
+    dplyr::select(-any_of("fb_id")) %>%
+    left_join(global_annotation_map, by = c("gene_name" = "gene"))
+
+scenic_nb_results_df <- scenic_nb_results_df %>%
+    mutate(gene_symbol = strip_regulon_sign(TF)) %>%
+    dplyr::select(-any_of("fb_id")) %>%
+    left_join(global_annotation_map, by = c("gene_symbol" = "gene"))
+
+gene_patterns_to_exclude <- c(
+    "^lncRNA", "rRNA", "snoRNA", "snRNA",
+    "^FBti", "^Psi", "^mir-", "^\\d+SrRNA"
+)
+exclude_regex <- paste(gene_patterns_to_exclude, collapse = "|")
+
+fdr_threshold <- 0.05
+
+# ── Helper functions: FlyBase links, volcano plot ───────────────
+
+#' Create a FlyBase link for a gene symbol
+#' @param fbid The FlyBase ID (e.g., FBgn0085450)
+#' @param symbol The Gene Symbol to display as clickable text
+# Function 1: Direct Link Generator
+make_flybase_link <- function(fbid, symbol) {
+  url <- paste0("https://flybase.org/reports/", fbid)
+  htmltools::HTML(paste0(
+    '<a href="', url, '" target="_blank" ',
+    'style="color: #005b96; font-style: italic; text-decoration: none;">',
+    symbol, '</a>'
+  ))
+}
+
+# Function 2: Universal Reactable Column Definition
+# Usage: gene = flybase_column(dataframe_name)
+flybase_column <- function(df_object) {
+  colDef(
+    name = "Gene",
+    html = TRUE,
+    cell = function(value, index) {
+      # Use the df_object explicitly to avoid environment scoping issues
+      fbid <- df_object$fb_id[index]
+      if (length(fbid) > 0 && !is.na(fbid)) make_flybase_link(fbid, value) else value
+    },
+    style = list(fontStyle = "italic")
+  )
+}
+
+deg_volcano_plot <- function(
+    cell_type,
+    results_dir = NULL,
+    plot_dir = NULL,
+    lfc_threshold = 1.0,
+    fdr_threshold = 0.05,
+    label_prop = 0.8,
+    min_labels = 5,
+    max_labels = 20,
+    highlight_genes = NULL,
+    remove_artifacts = TRUE,
+    exclude_patterns = NULL
+) {
+
+    cell_type <- gsub(" ", "_", cell_type)
+    ct_dir <- here(results_dir, cell_type)
+    deg_file <- here(ct_dir, paste0(cell_type, "_edgeR_results.tsv"))
+    deg_df <- read_tsv(deg_file, show_col_types = FALSE)
+
+    sig_pre_filter <- deg_df %>%
+        filter(FDR < fdr_threshold, abs(logFC) >= lfc_threshold)
+
+    artifact_genes <- character(0)
+    pattern_genes <- character(0)
+
+    if (remove_artifacts && "is_artifact" %in% colnames(deg_df)) {
+        artifact_genes <- sig_pre_filter %>% filter(is_artifact == TRUE) %>% pull(gene)
+        deg_df <- deg_df %>% filter(is_artifact == FALSE | is.na(is_artifact))
+    }
+
+    if (!is.null(exclude_patterns)) {
+        pat <- paste(exclude_patterns, collapse = "|")
+        pattern_genes <- sig_pre_filter %>% filter(grepl(pat, gene)) %>% pull(gene)
+        deg_df <- deg_df %>% filter(!grepl(pat, gene))
+    }
+
+    message("--- Filtering Report for ", cell_type, " ---")
+    if(length(artifact_genes) > 0) message("Removed Significant Artifacts: ", paste(artifact_genes, collapse = ", "))
+    if(length(pattern_genes) > 0) message("Removed Significant Pattern Matches: ", paste(pattern_genes, collapse = ", "))
+    message("------------------------------------------")
+
+    sig_df <- deg_df %>%
+        filter(FDR < fdr_threshold, abs(logFC) >= lfc_threshold) %>%
+        mutate(rank_score = abs(logFC) * -log10(FDR))
+
+    n_to_label <- max(min_labels, min(ceiling(nrow(sig_df) * label_prop), max_labels))
+
+    top_genes <- sig_df %>% arrange(desc(rank_score)) %>% head(n_to_label) %>% pull(gene)
+
+    # Separate regular and highlighted genes
+    if (!is.null(highlight_genes)) {
+        regular_genes <- setdiff(top_genes, highlight_genes)
+        highlight_genes <- intersect(highlight_genes, deg_df$gene)
+    } else {
+        regular_genes <- top_genes
+        highlight_genes <- character(0)
+    }
+
+    n_sig_up <- sum(deg_df$FDR < fdr_threshold & deg_df$logFC > lfc_threshold)
+    n_sig_down <- sum(deg_df$FDR < fdr_threshold & deg_df$logFC < -lfc_threshold)
+
+    message(sprintf("%s | Up: %d Down: %d", cell_type, n_sig_up, n_sig_down))
+
+    # Smart xlim based on significant genes
+    lfc_range <- range(sig_df$logFC)
+    buffer <- diff(lfc_range) * 0.15
+    xlim_val <- c(min(lfc_range[1] - buffer, -lfc_threshold * 1.2),
+                  max(lfc_range[2] + buffer, lfc_threshold * 1.2))
+
+    # Create base plot WITHOUT labels
+    p <- EnhancedVolcano(
+        deg_df,
+        lab = NA,
+        x = "logFC",
+        y = "FDR",
+        xlim = xlim_val,
+        xlab = bquote(~Log[2]~ 'Fold change'),
+        ylab = bquote(~-Log[10]~ 'FDR'),
+        pCutoff = fdr_threshold,
+        FCcutoff = lfc_threshold,
+        pointSize = 2.0,
+        colAlpha = 0.6,
+        legendPosition = 'top',
+        drawConnectors = FALSE,
+        legendLabSize = 8,
+        legendIconSize = 3,
+        title = paste0(
+            cell_type
+        ),
+        subtitle = NULL,
+        legendLabels = c(
+            ' NS',
+            bquote(~Log[2]~'FC'),
+            ' FDR',
+            bquote(~FDR~and~Log[2]~'FC')
+        )
+    )
+
+    # Add regular gene labels with STRONGER ggrepel settings
+    if (length(regular_genes) > 0) {
+        regular_df <- deg_df %>%
+            filter(gene %in% regular_genes)
+
+        p <- p +
+            geom_text_repel(
+                data = regular_df,
+                aes(x = logFC, y = -log10(FDR), label = gene),
+                size = 3.5,
+                fontface = "plain",
+                color = "black",
+                box.padding = 0.3,
+                point.padding = 0.2,
+                segment.color = "grey50",
+                segment.size = 0.3,
+                min.segment.length = 0.2,
+                max.overlaps = Inf,
+                force = 3,
+                force_pull = 1,
+                max.time = 2,
+                max.iter = 50000,
+                seed = 42
+            )
+    }
+
+    # Add highlighted gene labels with even STRONGER settings
+    if (length(highlight_genes) > 0) {
+        highlight_df <- deg_df %>%
+            filter(gene %in% highlight_genes)
+
+        p <- p +
+            geom_text_repel(
+                data = highlight_df,
+                aes(x = logFC, y = -log10(FDR), label = gene),
+                size = 4.5,
+                fontface = "bold",
+                color = "black",
+                box.padding = 0.3,
+                point.padding = 0.2,
+                segment.color = "black",
+                segment.size = 0.5,
+                min.segment.length = 0.2,
+                max.overlaps = Inf,
+                force = 3,
+                force_pull = 1.5,
+                max.time = 2,
+                max.iter = 50000,
+                seed = 42
+            )
+    }
+
+    # Move legend to top-left corner
+    p <- p +
+        theme(
+            legend.position = c(0.02, 0.98),
+            legend.justification = c(0, 1),
+            legend.margin = margin(2, 4, 2, 4),
+            legend.spacing.x = unit(0.1, "cm"),
+            legend.text = element_text(size = 8, margin = margin(l = -3, unit = "pt")),
+            title = element_text(hjust = 0.5, size = 14),
+            axis.title = element_text(size = 11)
+        )
+
+    return(p)
+}
+
+```
+
+
+## EdgeR differential gene expression analysis
+
+Differential gene expression analysis is performed by creating a pseudo-bulk expression matrix for Neuroblasts, aggregating counts by sample and condition. The `edgeR` package is then used to identify genes that are differentially expressed between `Control` and `ND75-KD` conditions. Significant genes are those with FDR < 0.05 and |log2FC| ≥ 1.
+
+```{r}
+#| label: fig-deg-volcano-neuroblasts
+#| code-summary: "Neuroblast pseudobulk volcano (edgeR)"
+#| fig-width: 7
+#| fig-height: 7
+#| cache: true
+#| fig-cap: "Volcano plot of pseudobulk differential gene expression in ND-75 Neuroblasts (ND75-KD vs Control). Each point is a gene; horizontal dashed line = FDR 0.05, vertical dashed lines = |log2FC| = 1. Red = significantly upregulated, blue = significantly downregulated."
+
+highlighted_cell_type <- "Neuroblasts"
+
+volcano_plot_neuroblasts <- deg_volcano_plot(
+    cell_type = highlighted_cell_type,
+    results_dir = deg_results_dir,
+    plot_dir = deg_plot_dir,
+    lfc_threshold = 1.0,
+    fdr_threshold = 0.05,
+    label_prop = 0.8,
+    highlight_genes = c("Ldh", "ND-75"),
+    remove_artifacts = TRUE,
+    exclude_patterns = gene_patterns_to_exclude
+)
+
+volcano_plot_neuroblasts
+```
+
+### Significant DEGs in Neuroblasts
+
+Genes passing |log2FC| ≥ 1.0 and FDR < 0.05, sorted by log2 fold-change magnitude.
+
+```{r}
+#| label: edgeR-deg-summary-neuroblasts
+#| code-summary: "edgeR DEG counts + summary table (Neuroblasts)"
+#| cache: false
+
+deg_table_data <- deg_results %>%
+  filter(is_artifact == FALSE | is.na(is_artifact)) %>%
+  filter(FDR < 0.05, abs(logFC) >= 1.0) %>%
+  filter(!grepl(exclude_regex, gene)) %>%
+  mutate(
+    logFC = signif(logFC, 3),
+    logCPM = signif(logCPM, 3),
+    FDR = signif(FDR, 3)
+  ) %>%
+  arrange(desc(logFC)) %>%
+  dplyr::select(gene, fb_id, logFC, logCPM, FDR)
+
+div(
+  style = "margin-bottom: 30px; font-family: sans-serif;",
+  reactable(
+    deg_table_data,
+    pagination = FALSE,
+    height = 500,
+    searchable = TRUE,
+    highlight = TRUE,
+    compact = TRUE,
+    bordered = TRUE,
+    defaultColDef = colDef(align = "center"),
+    columns = list(
+      gene = flybase_column(deg_table_data),
+      fb_id = colDef(show = FALSE),
+      logFC = colDef(
+        name = "log2 Fold Change",
+        cell = function(value) {
+          max_abs_val <- max(abs(deg_table_data$logFC))
+          width <- paste0((abs(value) / max_abs_val) * 100, "%")
+          color <- if (value > 0) "#B2182B" else "#2166AC"
+
+          bar_container <- div(
+            style = list(display = "flex", alignItems = "center", width = "120px", height = "18px"),
+            # Negative side (Downregulated)
+            div(style = list(width = "50%", display = "flex", justifyContent = "flex-end"),
+                if (value < 0) div(style = list(background = color, width = width, height = "10px", borderRadius = "2px"))),
+            # Center Divider
+            div(style = list(width = "1px", height = "100%", background = "#ccc", margin = "0 2px")),
+            # Positive side (Upregulated)
+            div(style = list(width = "50%", display = "flex", justifyContent = "flex-start"),
+                if (value > 0) div(style = list(background = color, width = width, height = "10px", borderRadius = "2px")))
+          )
+
+          div(style = list(display = "flex", alignItems = "center"),
+              span(style = list(width = "40px", textAlign = "right", marginRight = "10px"), value),
+              bar_container)
+        }
+      ),
+      logCPM = colDef(name = "logCPM"),
+      FDR = colDef(
+        name = "FDR",
+        cell = function(value) format(value, scientific = TRUE)
+      )
+    )
+  )
+)
+```
+
+## SCENIC analysis on Neuroblasts subset
+
+The SCENIC analysis returns a matrix of regulon activity scores (AUCell) per cell. Statistical testing to identify differentially regulated regulons between Control and ND75-KD neuroblasts is performed using a two-sided Mann-Whitney U test, with the rank-biserial *r* as the effect size (BH-corrected; *r* > 0 = more active in ND75-KD). We also assess the correlation of regulon activity with the expression of the metabolic gene *Ldh*, computed separately within each condition, to identify regulons potentially involved in metabolic regulation; Δρ = ρ~ND75-KD~ − ρ~Control~ captures condition-specific coupling.
+
+### Differential regulon activity
+
+Regulons whose per-cell AUCell activity differs between Control and ND75-KD neuroblasts, identified by a two-sided Mann-Whitney test on the AUCell scores (BH-corrected, rank-biserial *r* effect size).
+
+#### Top differential regulons
+
+Ranked by |rank-biserial r| (Mann-Whitney effect sizes). A regulon with **r > 0** is more active in ND75-KD cells.
+
+```{r}
+#| label: display-general-results
+#| code-summary: "SCENIC differential-activity results table"
+#| cache: false
+
+sig_results <- scenic_nb_results_df %>%
+    filter(mw_fdr < 0.05)
+
+sig_results_ranked <- sig_results %>%
+    arrange(desc(abs(rank_biserial_r))) %>%
+    mutate(Rank = row_number()) %>%
+    dplyr::select(
+        Rank, TF, fb_id,
+        rank_biserial_r, cohens_d, NES,
+        n_targets, mw_fdr
+    )
+
+div(
+    style = "margin-bottom: 30px; font-family: sans-serif;",
+    reactable(
+        sig_results_ranked,
+        pagination = FALSE, height = 500,
+        searchable = TRUE, highlight = TRUE,
+        compact = TRUE, bordered = TRUE,
+        defaultColDef = colDef(align = "center"),
+        columns = list(
+            Rank = colDef(width = 60,
+                          style = list(fontWeight = "bold", color = "#555")),
+            fb_id = colDef(show = FALSE), # Hide the ID column
+            TF   = colDef(
+                align = "left",
+                style = list(fontStyle = "italic"),
+                html = TRUE,  # Ensure HTML processing is ON
+                cell = function(value, index) {
+                    # Extract directly from the specific row
+                    fbid <- sig_results_ranked[index, "fb_id"]
+                    if (!is.na(fbid) && fbid != "") {
+                        make_flybase_link(fbid, value)
+                    } else {
+                        value
+                    }
+                }
+            ),
+            rank_biserial_r = colDef(
+                name = "Rank-Biserial r",
+                cell = function(value) {
+                    color <- if (value > 0) "#B2182B" else "#2166AC"
+                    arrow <- if (value > 0) " ↑" else " ↓"
+                    bar_w <- paste0(abs(value) * 100, "%")
+                    div(style = list(display = "flex", alignItems = "center", gap = "6px"),
+                        div(style = list(width = "80px", height = "12px",
+                                         background = "#eee", borderRadius = "2px",
+                                         overflow = "hidden", position = "relative"),
+                            div(style = list(position  = "absolute",
+                                             left      = if (value >= 0) "50%" else "auto",
+                                             right     = if (value <  0) "50%" else "auto",
+                                             width     = bar_w, height = "100%",
+                                             background = color, borderRadius = "2px"))),
+                        span(style = list(color = color, fontWeight = "bold",
+                                          fontSize = "0.85em", whiteSpace = "nowrap"),
+                             paste0(round(value, 3), arrow)))
+                }
+            ),
+            cohens_d  = colDef(name = "Cohen's d",  format = colFormat(digits = 3)),
+            NES       = colDef(name = "NES (max)",   format = colFormat(digits = 2)),
+            n_targets = colDef(name = "N Targets",   format = colFormat(digits = 0)),
+            mw_fdr    = colDef(name = "FDR",
+                               cell = function(v) format(v, scientific = TRUE, digits = 3))
+        )
+    )
+)
+```
+
+#### Regulon activity heatmap in Neuroblasts
+
+Per-cell AUCell scores for the top 40 upregulated regulons (ranked by rank-biserial r), with cells grouped by condition. Annotations show the DRA effect size (rank-biserial r) and Ldh Δρ for each regulon.
+
+```{r}
+#| label: fig-regulon-heatmap
+#| code-summary: "Regulon activity heatmap (Neuroblasts)"
+#| fig-width: 16
+#| fig-height: 10
+#| message: false
+#| warning: false
+#| fig-cap: "Heatmap of per-cell regulon AUCell scores for the top 40 upregulated SCENIC regulons in Neuroblasts, ranked by DRA rank-biserial r. Cells are grouped by condition (Control/ND75-KD). Annotations show rank-biserial r effect size and Ldh Δρ per regulon. Colour scale represents z-scored AUCell activity."
+
+# Top 40 upregulated by rank_biserial_r
+# Define thresholds and subset
+n_top         <- 40
+top_tfs_hm    <- head(top_up_regs, n_top)
+top_cols_hm   <- tf_to_col[top_tfs_hm]
+top_cols_hm   <- top_cols_hm[!is.na(top_cols_hm)]
+
+auc_subset    <- auc_mtx[, top_cols_hm]
+
+# Force ND75-KD to be the top level in the row split
+condition_factor <- factor(condition, levels = c("ND75-KD", "Control"))
+cell_order       <- order(condition_factor)
+auc_ordered      <- auc_subset[cell_order, ]
+cond_ordered     <- condition_factor[cell_order]
+
+auc_zscore    <- scale(auc_ordered)
+auc_zscore[auc_zscore >  3] <-  3
+auc_zscore[auc_zscore < -3] <- -3
+
+ldh_expr      <- target_expr[cell_order]
+ldh_scaled    <- scale(ldh_expr)
+
+# Effect sizes
+effect_sizes  <- scenic_nb_results_df$rank_biserial_r[
+    match(top_tfs_hm, scenic_nb_results_df$TF)
+]
+ldh_delta_ann <- pmax(
+    scenic_nb_results_df$ldh_delta_rho[
+        match(top_tfs_hm, scenic_nb_results_df$TF)
+    ], 0
+)
+
+lgd_param <- list(direction = "horizontal", title_position = "topcenter")
+
+# Condition is a ROW annotation
+row_anno_cond <- rowAnnotation(
+    Condition = cond_ordered,
+    col = list(Condition = c("ND75-KD" = "#EF6548", "Control" = "#4292C6")),
+    show_annotation_name = FALSE,
+    annotation_name_side = "top",
+    annotation_name_rot  = 90,
+    annotation_name_gp   = gpar(fontsize = 12, fontface = "bold"),
+    simple_anno_size     = unit(0.5, "cm"),
+    border = TRUE, show_legend = FALSE
+)
+
+# Stats are a BOTTOM annotation
+col_anno_stats <- HeatmapAnnotation(
+    ` `               = anno_empty(border = FALSE, height = unit(1, "mm")),
+    `Rank-biserial r` = effect_sizes,
+    `Ldh Δρ`          = ldh_delta_ann,
+    col = list(
+        `Rank-biserial r` = colorRamp2(c(0, max(effect_sizes, na.rm = TRUE)), c("white", "#B2182B")),
+        `Ldh Δρ`          = colorRamp2(c(0, 1), c("white", "#67001F"))
+    ),
+    annotation_name_side = "left",
+    annotation_name_rot  = 0,
+    annotation_name_gp   = gpar(fontsize = 10, fontface = "bold"),
+    simple_anno_size     = unit(0.4, "cm"),
+    border = TRUE,
+    gap    = unit(c(0, 2), "mm"),
+    annotation_legend_param = list(
+        `Rank-biserial r` = lgd_param,
+        `Ldh Δρ`          = lgd_param
+    )
+)
+
+shared_col_fun <- colorRamp2(c(-3, 0, 3), c("#2166AC", "white", "#B2182B"))
+
+# Main Heatmap
+ht_main <- Heatmap(
+    auc_zscore,
+    name              = "Regulon Activity (Z-score)",
+    col               = shared_col_fun,
+    column_labels     = top_tfs_hm,
+    bottom_annotation = col_anno_stats,
+    left_annotation   = row_anno_cond,
+    cluster_rows      = FALSE,
+    row_split         = cond_ordered,
+    row_title_side    = "left",
+    row_title_rot     = 90,
+    cluster_columns   = FALSE,
+    show_column_names = TRUE,
+    column_names_side = "bottom",
+    column_names_rot  = 45, # Keep main regulons at 45
+    column_names_gp   = gpar(fontsize = 8, fontface = "italic"),
+    border = TRUE, use_raster = TRUE,
+    heatmap_legend_param = lgd_param
+)
+
+# LDH Heatmap
+ht_ldh <- Heatmap(
+    matrix(ldh_scaled, ncol = 1),
+    name              = "Ldh Expression (Scaled)",
+    col               = shared_col_fun,
+    cluster_rows      = FALSE,
+    column_labels     = paste0(target_gene, " Expr"),
+    column_names_side = "bottom",
+    column_names_rot  = 90, # Revert LDH label back to 90 degrees
+    column_names_gp   = gpar(fontsize = 10, fontface = "bold.italic"),
+    width             = unit(1, "cm"),
+    border            = TRUE,
+    heatmap_legend_param = lgd_param
+)
+
+# Combine the regulon and Ldh heatmaps
+ht_combined <- ht_main + ht_ldh
+
+draw_regulon_heatmap <- function() {
+    draw(ht_combined, ht_gap = unit(2, "mm"),
+         heatmap_legend_side = "bottom", annotation_legend_side = "bottom",
+         merge_legends = TRUE, legend_gap = unit(40, "mm"),
+         padding = unit(c(5, 10, 5, 5), "mm"))
+}
+
+invisible(capture.output({
+    cairo_pdf(here(output_dir, "SCENIC_Regulon_Heatmap.pdf"), width = 20, height = 10)
+    draw_regulon_heatmap()
+    invisible(dev.off())
+
+    png(here(output_dir, "SCENIC_Regulon_Heatmap.png"),
+        width = 16, height = 10, units = "in", res = 300)
+    draw_regulon_heatmap()
+    invisible(dev.off())
+}))
+
+# Inline display
+draw_regulon_heatmap()
+```
+
+#### Per-cell regulon activity for the top differential regulons
+
+Per-cell AUCell activity for the five regulons most increased and the five most decreased in ND75-KD neuroblasts, ranked by differential regulon activity (rank-biserial *r*).
+
+```{r}
+#| label: fig-regulon-activity-violins
+#| code-summary: "Per-cell regulon activity violins (top differential regulons)"
+#| cache: true
+#| fig-width: 12
+#| fig-height: 6
+#| fig-cap: "Per-cell pySCENIC AUCell activity of the five most up- and five most down-regulated regulons in Neuroblasts (ranked by differential regulon activity, rank-biserial r), split by condition. Points are individual cells; violin width is the activity distribution; embedded boxplots show the median and interquartile range. Top row: regulons upregulated in ND75-KD; bottom row: downregulated."
+
+n_each <- 5
+
+reg_up <- scenic_nb_results_df %>%
+    filter(rank_biserial_r > 0) %>%
+    arrange(desc(rank_biserial_r)) %>%
+    head(n_each) %>%
+    transmute(TF, direction = "Upregulated in ND75-KD")
+
+reg_dn <- scenic_nb_results_df %>%
+    filter(rank_biserial_r < 0) %>%
+    arrange(rank_biserial_r) %>%
+    head(n_each) %>%
+    transmute(TF, direction = "Downregulated in ND75-KD")
+
+reg_sel  <- bind_rows(reg_up, reg_dn)
+reg_cols <- tf_to_col[reg_sel$TF]              # handles TFs with parens in the name
+reg_sel  <- reg_sel[!is.na(reg_cols), , drop = FALSE]
+reg_cols <- reg_cols[!is.na(reg_cols)]
+
+reg_activity_df <- as.data.frame(auc_mtx[, reg_cols, drop = FALSE])
+colnames(reg_activity_df) <- reg_sel$TF
+reg_activity_df$condition <- condition        # aligned to rownames(auc_mtx)
+
+reg_activity_long <- reg_activity_df %>%
+    tidyr::pivot_longer(-condition, names_to = "TF", values_to = "auc") %>%
+    left_join(reg_sel, by = "TF") %>%
+    mutate(
+        TF        = factor(TF, levels = reg_sel$TF),      # up first, then down
+        condition = factor(condition, levels = c("Control", "ND75-KD"))
+    )
+
+cond_cols <- c("Control" = "grey70", "ND75-KD" = "#E64B35")
+
+p_regulon_violins <- ggplot(
+    reg_activity_long, aes(x = condition, y = auc, fill = condition)
+) +
+    geom_jitter(aes(colour = condition), width = 0.18, size = 0.15,
+                alpha = 0.12, show.legend = FALSE) +
+    geom_violin(scale = "width", alpha = 0.55, linewidth = 0.3, colour = "grey30") +
+    geom_boxplot(width = 0.14, outlier.shape = NA, alpha = 0.9, linewidth = 0.3) +
+    scale_fill_manual(values = cond_cols) +
+    scale_colour_manual(values = cond_cols) +
+    facet_wrap(~ TF, scales = "free_y", ncol = n_each) +
+    labs(x = NULL, y = "Regulon activity (AUCell)") +
+    theme_bw() +
+    theme(
+        legend.position  = "none",
+        strip.background = element_blank(),
+        strip.text       = element_text(face = "italic", size = 9),
+        axis.text.x      = element_text(angle = 45, hjust = 1, size = 8),
+        panel.grid.minor = element_blank()
+    )
+
+ggsave(
+    file.path(output_dir, "regulon_activity_violins_top_differential.pdf"),
+    p_regulon_violins, width = 12, height = 6
+)
+
+p_regulon_violins
+```
+
+
+### Regulon activity vs Ldh coupling
+
+Cross-referencing each regulon's differential activity with how tightly its activity tracks *Ldh* expression. *Ldh* coupling is the Spearman ρ between a regulon's AUCell activity and *Ldh*, computed within each condition; Δρ = ρ~ND75-KD~ − ρ~Control~ captures coupling that appears specifically in ND75-KD. Regulons that are both more active and more *Ldh*-coupled in ND75-KD are the candidate drivers of the metabolic response.
+
+#### TF differential activity vs Ldh co-regulation
+
+Each regulon is plotted by its differential activity (x, rank-biserial *r*) against its condition-specific *Ldh* coupling (y, Δρ = ρ~ND75-KD~ − ρ~Control~); colour is the overall Spearman ρ with *Ldh*, and significant DRA regulons (FDR < 0.05) are outlined.
+
+```{r}
+#| label: fig-scenic-2d-scatter
+#| code-summary: "SCENIC TF activity vs Ldh co-regulation scatter"
+#| fig-width: 8
+#| fig-height: 7
+#| fig-cap: "Scatter plot of TF regulon differential activity (x-axis, rank-biserial r from Mann-Whitney test) versus Ldh co-regulation (y-axis, Δρ = ρ~ND75-KD~ − ρ~Control~). Each point represents a regulon with the colour depicting overall Spearman ρ with Ldh and size representing |Δρ|. Filled, outlined points are statistically significant (DRA FDR < 0.05). Top upregulated TFs most strongly coupled to Ldh are labelled."
+
+n_label <- 12
+
+scatter_df <- scenic_nb_results_df %>%
+    filter(!is.na(ldh_delta_rho), !is.na(rank_biserial_r), !is.na(ldh_rho_overall)) %>%
+    mutate(
+        dra_sig_up = mw_fdr < 0.05 & rank_biserial_r > 0,
+        dra_sig_dn = mw_fdr < 0.05 & rank_biserial_r < 0,
+        do_label   = dra_sig_up & rank(-ldh_delta_rho) <= n_label
+    )
+
+cor_limit <- max(abs(scatter_df$ldh_rho_overall), na.rm = TRUE)
+
+scenic_scatter_plot <- ggplot(scatter_df, aes(x = rank_biserial_r, y = ldh_delta_rho)) +
+    geom_hline(yintercept = 0, linetype = "dashed",
+               color = "grey60", linewidth = 0.4) +
+    geom_vline(xintercept = 0, linetype = "dashed",
+               color = "grey60", linewidth = 0.4) +
+    geom_point(
+        data = filter(scatter_df, !dra_sig_up & !dra_sig_dn),
+        aes(fill = ldh_rho_overall),
+        shape = 21, color = NA, size = 1.8, alpha = 0.25
+    ) +
+    geom_point(
+        data = filter(scatter_df, dra_sig_up | dra_sig_dn),
+        aes(fill = ldh_rho_overall, size = abs(ldh_delta_rho)),
+        shape = 21, color = "grey25", stroke = 0.25, alpha = 0.85
+    ) +
+    ggrepel::geom_text_repel(
+        data         = filter(scatter_df, do_label),
+        aes(label    = TF),
+        fontface     = "italic",
+        size         = 3.4,
+        max.overlaps = 20,
+        box.padding  = 0.5,
+        segment.color = "grey45",
+        segment.size  = 0.3,
+        min.segment.length = 0.2,
+        force = 1.5
+    ) +
+    scale_fill_gradientn(
+        colours = c("#2166AC", "#F7F7F7", "#B2182B"),
+        limits  = c(-cor_limit, cor_limit),
+        name    = expression(rho[Ldh]),
+        guide   = guide_colorbar(
+            barwidth     = 0.8,
+            barheight    = 6,
+            ticks.colour = "grey30",
+            title.hjust  = 0.5
+        )
+    ) +
+    scale_size_continuous(range = c(1.5, 4.5), guide = "none") +
+    labs(
+        x = "Rank-biserial r (DRA effect size)",
+        y = expression(Delta*rho~(rho[ND75-KD]-rho[Control]))
+    ) +
+    theme_classic(base_size = 13) +
+    theme(
+        legend.position = "right",
+        legend.title    = element_text(size = 10, hjust = 0.5),
+        plot.title      = element_text(face = "bold"),
+        plot.subtitle   = element_text(size = 9, color = "grey40")
+    )
+
+scenic_scatter_plot
+
+ggsave(
+    filename = here(output_dir, "SCENIC_TF_Activity_vs_Ldh_Correlation_Scatter.png"),
+    plot = scenic_scatter_plot,
+    width = 8, height = 7, dpi = 300
+)
+
+ggsave(
+    filename = here(output_dir, "SCENIC_TF_Activity_vs_Ldh_Correlation_Scatter.pdf"),
+    plot = scenic_scatter_plot,
+    width = 8, height = 7
+)
+```
+
+#### Regulon activity correlated with *`r target_gene`* expression
+
+Subset of significantly differentially regulated TFs (DRA FDR < 0.05) whose regulon activity also correlates with *`r target_gene`* expression (Ldh FDR < 0.05). The Spearman ρ values measure how strongly TF activity co-varies with Ldh levels within each condition. Δρ = ρ~ND75-KD~ − ρ~Control~ captures condition-specific coupling: a large positive Δρ means the TF–Ldh relationship emerges in ND75-KD (candidate metabolic drivers); a large negative Δρ means normal TF–Ldh co-regulation is lost.
+
+```{r}
+#| label: display-metabolic-results
+#| code-summary: "Ldh-coupled regulon ranking table"
+#| cache: false
+
+metabolic_ranked <- sig_results %>%
+    filter(!is.na(ldh_rho_overall)) %>%
+    arrange(desc(ldh_delta_rho)) %>%
+    mutate(
+        Rank            = row_number(),
+        ldh_rho_overall = signif(ldh_rho_overall, 3),
+        ldh_delta_rho   = signif(ldh_delta_rho,   3),
+        rank_biserial_r = signif(rank_biserial_r,  3)
+    ) %>%
+    dplyr::select(
+        Rank, TF, fb_id,
+        ldh_rho_overall, ldh_rho_Control, ldh_rho_ND75_KD,
+        ldh_delta_rho, ldh_fdr
+    )
+
+div(
+    style = "font-family: sans-serif;",
+    reactable(
+        metabolic_ranked,
+        pagination = FALSE, height = 500,
+        searchable = TRUE, highlight = TRUE,
+        compact = TRUE, bordered = TRUE,
+        defaultColDef = colDef(align = "center"),
+        columns = list(
+            Rank = colDef(width = 60,
+                          style = list(fontWeight = "bold", color = "#555")),
+            fb_id = colDef(show = FALSE), # Hide the ID column
+            TF   = colDef(
+                align = "left",
+                style = list(fontStyle = "italic"),
+                html = TRUE,
+                cell = function(value, index) {
+                    fbid <- metabolic_ranked[index, "fb_id"]
+                    if (!is.na(fbid) && fbid != "") {
+                        make_flybase_link(fbid, value)
+                    } else {
+                        value
+                    }
+                }
+            ),
+            ldh_rho_overall     = colDef(name = "ρ Overall",     format = colFormat(digits = 3)),
+            ldh_rho_Control     = colDef(name = "ρ Control",     format = colFormat(digits = 3)),
+            ldh_rho_ND75_KD = colDef(name = "ρ ND75-KD", format = colFormat(digits = 3)),
+            ldh_delta_rho = colDef(
+                name = "Δρ (Dysf − Ctrl)",
+                cell = function(value) {
+                    color <- if (value > 0) "#67001F" else "#2166AC"
+                    bar_w <- paste0(min(abs(value) / 0.5, 1) * 100, "%")
+                    div(style = list(display = "flex", alignItems = "center", gap = "6px"),
+                        div(style = list(width = "70px", height = "12px",
+                                         background = "#eee", borderRadius = "2px",
+                                         overflow = "hidden", position = "relative"),
+                            div(style = list(position  = "absolute",
+                                             left      = if (value >= 0) "50%" else "auto",
+                                             right     = if (value <  0) "50%" else "auto",
+                                             width     = bar_w, height = "100%",
+                                             background = color, borderRadius = "2px"))),
+                        span(style = list(color = color, fontWeight = "bold",
+                                          fontSize = "0.85em"), round(value, 3)))
+                }
+            ),
+            ldh_fdr = colDef(name = "Ldh FDR",
+                             cell = function(v) format(v, scientific = TRUE, digits = 3))
+        )
+    )
+)
+```
+
+## hdWGCNA analysis
+
+hdWGCNA (hierarchical dense Weighted Gene Co-expression Network Analysis) identifies modules of co-expressed genes using metacell-aggregated expression profiles. Each module is summarised by its module eigengene (ME), the first principal component of its member genes' expression. Module-trait correlation tests whether a module's eigengene is significantly associated with condition (Control vs ND75-KD) using Spearman correlation. Modules with a positive, FDR-significant correlation are upregulated in ND75-KD neuroblasts. Hub genes are the most highly connected members within each module (highest kME), and serve as proxies for the module's biological identity.
+
+```{r}
+#| label: hdWGCNA-analysis
+#| code-summary: "hdWGCNA: modules, eigengene–condition stats, hub genes"
+#| cache: false
+#| message: false
+#| results: hide
+
+# Module names (NB_M1..NB_Mn) are already set by hdWGCNA/00_hdWGCNA_analysis.R.
+# Subset to Neuroblasts for downstream analysis
+hdWGCNA_nb <- subset(hdWGCNA_results, subset = cell_type_manual == "Neuroblasts")
+# Recalculate module eigengenes for Neuroblasts subset
+nb_modules <- GetModules(hdWGCNA_results)
+MEs_all <- GetMEs(hdWGCNA_results)
+MEs_nb <- MEs_all[colnames(hdWGCNA_nb), ]
+all_modules <- setdiff(colnames(MEs_nb), "grey")
+
+hdWGCNA_nb$condition_num <- as.numeric(hdWGCNA_nb$condition == "ND75-KD")
+
+# Re-establish the internal expression pointers for the Neuroblast subset
+# This ensures internal hdWGCNA indices match the current subsetted cells
+hdWGCNA_nb <- SetDatExpr(
+    hdWGCNA_nb,
+    group_name = "Neuroblasts",
+    group.by = "cell_type_manual",
+    use_metacells = TRUE,
+    assay = "RNA"
+)
+
+# Re-calculate Module Eigengenes for this specific subset
+# This forces the internal ME matrix to match the current row (cell) count
+invisible(capture.output(hdWGCNA_nb <- ModuleEigengenes(
+    hdWGCNA_nb,
+    assay = "RNA"
+)))
+
+# 4. Run the correlation
+hdWGCNA_nb <- ModuleTraitCorrelation(
+    hdWGCNA_nb,
+    traits = "condition_num",
+    group.by = "cell_type_manual",
+    features = "MEs"
+)
+
+# Extract results for your summary tables
+nb_cor_results <- GetModuleTraitCorrelation(hdWGCNA_nb)
+
+nb_cor_vec <- nb_cor_results$cor$Neuroblasts
+nb_fdr_vec <- nb_cor_results$fdr$Neuroblasts
+
+# Create the clean correlation data frame
+cor_df <- data.frame(
+    module = names(nb_cor_vec),
+    correlation = as.numeric(nb_cor_vec),
+    fdr_cor = as.numeric(nb_fdr_vec),
+    stringsAsFactors = FALSE
+)
+
+# Identify Hub Genes and Module Stats
+hub_genes_list <- sapply(all_modules, function(mod) {
+  kme_col <- paste0("kME_", mod)
+
+  # Check if column exists to avoid errors
+  if(!kme_col %in% colnames(nb_modules)) return(NA)
+
+  nb_modules %>%
+    filter(module == mod) %>%
+    arrange(desc(.data[[kme_col]])) %>%
+    head(5) %>%
+    pull(gene_name) %>%
+    paste(collapse = ", ")
+})
+
+# Calculate Stats
+me_stats <- lapply(all_modules, function(mod) {
+  me_vals <- MEs_nb[[mod]]
+  condition <- hdWGCNA_nb$condition
+
+  ctrl <- me_vals[condition == "Control"]
+  nd75_kd <- me_vals[condition == "ND75-KD"]
+
+  test <- wilcox.test(nd75_kd, ctrl)
+  cohens_d <- (mean(nd75_kd) - mean(ctrl)) / sqrt((var(ctrl) + var(nd75_kd)) / 2)
+
+  data.frame(
+    module = mod,
+    n_control = length(ctrl),
+    n_ND75_KD = length(nd75_kd),
+    mean_control = mean(ctrl),
+    mean_ND75_KD = mean(nd75_kd),
+    delta = mean(nd75_kd) - mean(ctrl),
+    cohens_d = cohens_d,
+    p_value = test$p.value
+  )
+}) %>%
+  bind_rows() %>%
+  mutate(
+    fdr = p.adjust(p_value, method = "BH"),
+    hub_genes = hub_genes_list[module]
+  ) %>%
+  arrange(desc(cohens_d))
+
+
+# Add correlation results
+me_stats <- me_stats %>%
+    left_join(cor_df, by = "module")
+
+sig_mods <- me_stats %>%
+    filter(fdr_cor < 0.05) %>%
+    pull(module)
+```
+
+
+### Module–condition association
+
+Module-trait correlation tests whether a module's eigengene is significantly associated with condition (Control vs ND75-KD) using Spearman correlation.
+
+#### Module–trait correlation (Figure 2E)
+
+Correlation coefficient (*r*) between each module eigengene and condition; dot size = FDR; modules labelled by GO-derived functional identity and top-5 hub genes. Positive correlation indicates upregulated in ND75-KD.
+
+```{r}
+#| label: fig-module-trait-correlation
+#| code-summary: "Module–condition correlation panel (Figure 2E)"
+#| fig-width: 15
+#| fig-height: 10
+#| fig-cap: "Module-condition correlation plot for hdWGCNA Neuroblast modules. Left panel: GO-derived functional label and the five highest-kME hub genes per module (Ldh bolded where present). Right panel: Spearman correlation of each module eigengene with condition (positive = upregulated in ND-75 KD); point size = -log10(FDR); faded = non-significant (FDR >= 0.05)."
+
+# GO-derived functional labels for the Neuroblast modules, taken from the
+# canonical hdWGCNA/resources/hdWGCNA_module_manuscript_labels.csv loaded in
+# load-data (module_labels_canonical). The "(NB_Mx)" suffix keys each label to
+# its module within the panel.
+module_labels <- setNames(
+  sprintf("%s (%s)", module_labels_canonical, names(module_labels_canonical)),
+  names(module_labels_canonical)
+)
+
+# Plotmath label for the top-5 hub genes; bold Ldh and move it first where present.
+make_hub_plotmath <- function(hub_str) {
+  genes <- trimws(strsplit(hub_str, ",", fixed = TRUE)[[1]])
+  genes <- genes[nzchar(genes)]
+  if ("Ldh" %in% genes) {
+    others <- paste(setdiff(genes, "Ldh"), collapse = " · ")
+    sprintf("paste('Top hubs: ', bold('Ldh'), ' · %s')", others)
+  } else {
+    sprintf("'Top hubs: %s'", paste(genes, collapse = " · "))
+  }
+}
+
+# Build plot data directly from the module statistics computed above
+# (me_stats: correlation + fdr_cor from ModuleTraitCorrelation; hub_genes from
+# hub_genes_list). Rows are ordered by ascending correlation.
+fig2e_module_colors <- c(
+  NB_M1  = "#1f77b4", NB_M2  = "#ff7f0e", NB_M3  = "#2ca02c",
+  NB_M4  = "#9467bd", NB_M5  = "#8c564b", NB_M6  = "#e377c2",
+  NB_M7  = "#bcbd22", NB_M8  = "#17becf", NB_M9  = "#e31a1c",
+  NB_M10 = "#aec7e8", NB_M11 = "#98df8a"
+)
+
+me_plot_data <- me_stats %>%
+  dplyr::arrange(correlation) %>%
+  dplyr::mutate(
+    row              = dplyr::row_number(),
+    fdr_cor_plot     = pmax(fdr_cor, 1e-300),   # floor to avoid -log10(0) = Inf
+    is_sig           = ifelse(fdr_cor < 0.05, "Significant", "Non-Significant"),
+    cor_label        = sprintf("%.2f", correlation),
+    functional_label = module_labels[module],
+    hub_plotmath     = vapply(hub_genes, make_hub_plotmath, character(1))
+  )
+
+y_lims <- c(0.4, nrow(me_plot_data) + 0.6)
+
+label_panel <- ggplot(me_plot_data, aes(y = row)) +
+  geom_text(aes(x = 1, label = functional_label),
+            hjust = 1, nudge_y = 0.16, size = 4.6, colour = "#111111") +
+  geom_text(aes(x = 1, label = hub_plotmath),
+            hjust = 1, nudge_y = -0.18, size = 4.3, colour = "#555555", parse = TRUE) +
+  coord_cartesian(xlim = c(0, 1), ylim = y_lims, clip = "off") +
+  theme_void() +
+  theme(plot.margin = margin(6, 12, 6, 6))
+
+lollipop_panel <- ggplot(me_plot_data, aes(x = correlation, y = row)) +
+  geom_hline(yintercept = me_plot_data$row, colour = "grey95", linewidth = 0.5) +
+  geom_vline(xintercept = 0, colour = "grey60", linetype = "dashed", linewidth = 0.8) +
+  geom_segment(aes(x = 0, xend = correlation, yend = row, colour = module, alpha = is_sig),
+               linewidth = 1.8) +
+  geom_point(aes(fill = module, size = -log10(fdr_cor_plot), alpha = is_sig),
+             shape = 21, colour = "white", stroke = 1.2) +
+  geom_text(aes(label = cor_label, hjust = ifelse(correlation > 0, -0.8, 1.8)),
+            size = 3.5, colour = "black") +
+  scale_x_continuous(expand = expansion(mult = 0.15)) +
+  scale_y_continuous(limits = y_lims, breaks = NULL, expand = c(0, 0)) +
+  scale_alpha_manual(values = c(Significant = 1, `Non-Significant` = 0.3), guide = "none") +
+  scale_colour_manual(values = fig2e_module_colors, guide = "none") +
+  scale_fill_manual(values = fig2e_module_colors, guide = "none") +
+  scale_size_continuous(
+    name = "FDR", range = c(4, 14),
+    breaks = c(1.3, 10, 50), labels = c("0.05", "< 1e-10", "< 1e-50"),
+    guide = guide_legend(
+      direction = "vertical", title.position = "top",
+      override.aes = list(fill = "grey80", colour = "white", alpha = 1)
+    )
+  ) +
+  labs(x = "Module correlation with ND-75 KD (r)", y = NULL) +
+  theme_minimal(base_size = 14) +
+  theme(
+    axis.line.x = element_line(colour = "black", linewidth = 0.8),
+    axis.text.y = element_blank(),
+    panel.grid   = element_blank(),
+    legend.position = "right",
+    legend.text  = element_text(size = 9),
+    legend.title = element_text(size = 10),
+    plot.margin  = margin(6, 6, 6, 0)
+  )
+
+p_mod_cor_lollipop <- label_panel + lollipop_panel +
+  patchwork::plot_layout(widths = c(1, 1))
+
+ggsave(
+  filename = here(output_dir, "hdWGCNA_Module_Correlation_Lollipop_Metacell_FDR_with_Hubs.png"),
+  plot = p_mod_cor_lollipop,
+  width = 15, height = 10, dpi = 300, bg = "white"
+)
+
+ggsave(
+  filename = here(output_dir, "hdWGCNA_Module_Correlation_Lollipop_Metacell_FDR_with_Hubs.pdf"),
+  plot = p_mod_cor_lollipop,
+  width = 15, height = 10, bg = "white"
+)
+
+p_mod_cor_lollipop
+```
+
+#### Network module statistics
+
+Per-module association with condition: the Spearman correlation of each module eigengene with ND75-KD (positive = upregulated), its Cohen's *d*, the BH-corrected FDR, the eigengene mean difference (delta), and the five highest-kME hub genes. Modules with FDR < 0.05 are treated as ND75-KD-associated downstream.
+
+```{r}
+#| label: display-module-stats
+#| code-summary: "Module–condition statistics table"
+#| cache: false
+
+div(
+  style = "margin-bottom: 30px; font-family: sans-serif;",
+  reactable(
+    me_stats %>% dplyr::select(module, correlation, cohens_d, fdr_cor, delta, hub_genes),
+    pagination = FALSE,
+    searchable = TRUE,
+    compact = TRUE,
+    highlight = TRUE,
+    bordered = TRUE,
+    defaultColDef = colDef(align = "center"),
+    columns = list(
+      module = colDef(name = "Module", width = 100),
+      correlation = colDef(
+        name = "Correlation (r)",
+        width = 150,
+        format = colFormat(digits = 3),
+        style = function(value) {
+          # Diverging Color Palette: Red (Up), Blue (Down)
+          color <- if (value > 0.3) "#f4cccc" else if (value < -0.3) "#cfe2f3" else "#ffffff"
+          list(background = color)
+        }
+      ),
+      cohens_d = colDef(
+        name = "Cohen's d",
+        width = 100,
+        format = colFormat(digits = 3),
+        style = function(value) {
+          # Diverging Color Palette: Red (Up), Blue (Down)
+          color <- if (value > 0.3) "#f4cccc" else if (value < -0.3) "#cfe2f3" else "#ffffff"
+          list(background = color)
+        }
+      ),
+      fdr_cor = colDef(
+        name = "FDR",
+        width = 100,
+        cell = function(value) format(value, scientific = TRUE, digits = 3),
+        style = function(value) {
+            if (value < 0.05) list(color = "#333") else list(color = "#999")
+        }
+      ),
+      delta = colDef(
+        name = "Delta",
+        width = 100,
+        format = colFormat(digits = 3),
+        style = function(value) {
+          if (value > 0) list(color = "#B2182B") else if (value < 0) list(color = "#2166AC") else list()
+        }
+      ),
+      hub_genes = colDef(
+        name = "Top 5 Hub Genes",
+        width = 400,
+        align = "left",
+        style = list(fontSize = "0.9em", color = "#555")
+      )
+    )
+  )
+)
+
+# Select top modules for downstream plots
+nb_top_modules <- me_stats %>%
+  filter(fdr < 0.05, abs(cohens_d) > 0.3) %>%
+  head(6) %>%
+  pull(module)
+```
+
+
+### Module functional identities
+
+The GO functional label for each module come from GO enrichment of the top-50 hub genes, manually refined in `hdWGCNA/01_GO_enrichment.R`.
+
+```{r}
+#| label: hdWGCNA-GO-master-annotations
+#| code-summary: "Module functional identities"
+#| cache: false
+
+# The per-module top GO terms / FDR / gene counts
+# live in hdWGCNA/01_GO_enrichment.R and its
+# label_review/GO_top_terms_per_module.csv output
+go_summary_data <- module_labels_tbl %>%
+  dplyr::transmute(
+    Module = module,
+    Functional_Label = label,
+    .ord = suppressWarnings(as.integer(sub("^NB_M", "", module)))
+  ) %>%
+  dplyr::arrange(.ord) %>%
+  dplyr::select(-.ord)
+
+# Render the reactable
+div(
+  style = "margin-bottom: 30px; font-family: sans-serif;",
+  reactable(
+    go_summary_data,
+    searchable = TRUE,
+    compact = TRUE,
+    bordered = TRUE,
+    highlight = TRUE,
+    defaultColDef = colDef(headerStyle = list(background = "#f7f7f8")),
+    columns = list(
+      Module = colDef(width = 100, style = list(fontWeight = "bold")),
+      Functional_Label = colDef(name = "Functional Identity", align = "left", style = list(color = "#005b96", fontWeight = "bold"))
+    )
+  )
+)
+```
+
+
+### Hub genes
+
+The 10 highest-kME genes per module. kME (module eigengene connectivity) is how strongly a gene co-expresses with its module; genes are ordered by decreasing kME within each module.
+
+```{r}
+#| label: fig-hub-gene-kme
+#| code-summary: "Hub-gene kME lollipop"
+#| fig-width: 16
+#| fig-height: 7
+#| message: false
+#| warning: false
+#| fig-cap: "Hub gene connectivity (kME) for the top 10 genes in each hdWGCNA module. Each lollipop represents one gene; kME (module eigengene connectivity) measures how strongly a gene is co-expressed with its module. Genes are ranked left-to-right by decreasing kME within each module."
+
+# Map module names to hex colors
+invisible(capture.output(
+  mod_colors <- GetModules(hdWGCNA_nb) %>%
+    dplyr::select(module, color) %>%
+    distinct() %>%
+    tibble::deframe()
+))
+
+# Prepare data
+hub_data <- nb_modules %>%
+  filter(module != "grey") %>%
+  rename(gene_symbol = any_of(c("gene_name", "gene", "symbol"))) %>%
+  dplyr::select(gene_symbol, module, starts_with("kME_")) %>%
+  pivot_longer(cols = starts_with("kME_"), names_to = "kME_mod", values_to = "kME") %>%
+  mutate(kME_mod = gsub("kME_", "", kME_mod)) %>%
+  filter(module == kME_mod) %>%
+  group_by(module) %>%
+  arrange(desc(kME)) %>%
+  slice_head(n = 10) %>%
+  ungroup()
+
+# Generate the Refined Plot
+p_kME_lollipop <- ggplot(
+  hub_data, aes(x = reorder(gene_symbol, -kME), y = kME)) +
+  # Lollipop stems
+  geom_segment(aes(xend = reorder(gene_symbol, -kME), y = 0, yend = kME, color = module),
+               linewidth = 1.2, alpha = 0.6) +
+
+  # Lollipop heads
+  geom_point(aes(fill = module), shape = 21, size = 3.8, color = "white", stroke = 0.8) +
+
+  # kME value labels
+  geom_text(aes(label = sprintf("%.2f", kME)),
+            angle = 90, hjust = -0.5, size = 2.6, color = "black",
+            fontface = "plain") +
+
+  # Standardized 0-1 scale
+  scale_y_continuous(limits = c(0, 1.25), breaks = seq(0, 1, 0.5), expand = c(0, 0)) +
+
+  scale_fill_manual(values = mod_colors) +
+  scale_color_manual(values = mod_colors) +
+
+  facet_wrap(~module, nrow = 1, scales = "free_x") +
+
+  labs(x = NULL, y = "kME (Connectivity Strength)") +
+
+  theme_minimal(base_size = 12) +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(face = "plain"),
+    axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, size = 8, color = "black", face = "plain"),
+    axis.text.y = element_text(size = 8.5, color = "black", face = "plain"),
+
+    # REMOVE FACET LABEL BORDERS: Set color to NA
+    strip.background = element_rect(fill = "white", color = NA),
+    strip.text = element_text(size = 10, face = "plain", color = "black"),
+
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_blank(),
+
+    # Structural axis lines
+    axis.line.y = element_line(color = "black", linewidth = 0.5),
+    axis.line.x = element_line(color = "black", linewidth = 0.5),
+
+    # SLIGHTLY REDUCE PANEL SPACING: Tuned to 0.8
+    panel.spacing.x = unit(0.5, "lines")
+  )
+
+ggsave(
+  filename = here(output_dir, "hdWGCNA_Module_Hub_Genes_kME_Lollipop_Plot.pdf"),
+  plot = p_kME_lollipop,
+  width = 20,
+  height = 6
+)
+ggsave(
+  filename = here(output_dir, "hdWGCNA_Module_Hub_Genes_kME_Lollipop_Plot.png"),
+  plot = p_kME_lollipop,
+  width = 20,
+  height = 6,
+  dpi = 600
+)
+
+p_kME_lollipop
+```
+
+
+### Hub-gene network
+
+Global hub-gene connectivity (Kamada-Kawai layout) with the NB_M9 (Ldh) module highlighted and *Ldh* labelled in bold.
+
+```{r}
+#| label: fig-hub-network-focal-ldh
+#| code-summary: "Hub-gene network centred on Ldh"
+#| message: false
+#| warning: false
+#| fig-cap: "Global hub-gene connectivity (Kamada-Kawai layout). Nodes are hub genes coloured by module; the NB_M9 (Ldh) module is enlarged and its genes labelled, with Ldh in larger bold in the same module colour. Deterministic (seeded edge sub-sampling, layout and ggrepel placement)."
+
+options(future.globals.maxSize = 2000 * 1024^2)
+future::plan("sequential")   # sequential: avoids parallel overhead for the graph build
+
+# 1. Build the tidygraph object (bridge edges intact). capture.output() mutes
+# HubGeneNetworkPlot()'s side-effect print of the module-colour vector.
+# HubGeneNetworkPlot() sub-samples edges (edge_prop) — seed it for a stable graph.
+set.seed(GLOBAL_SEED)
+invisible(capture.output(
+  net_graph <- HubGeneNetworkPlot(
+    hdWGCNA_nb,
+    mods = sig_mods,
+    n_hubs = 10,
+    n_other = 0,
+    edge_prop = 0.25,      # 25% keeps inter-module connections alive
+    return_graph = TRUE
+  )
+))
+graph_data <- as_tbl_graph(net_graph)
+
+focal_module_name <- "NB_M9"
+
+# 2. Kamada-Kawai layout — seed it so the initialisation (and thus the final
+# coordinates) is reproducible.
+set.seed(GLOBAL_SEED)
+focal_layout <- ggraph::create_layout(graph_data, layout = "kk")
+
+focal_plot_kk <- ggraph(focal_layout) +
+  geom_edge_link(color = "grey75", alpha = 0.3, show.legend = FALSE) +
+  geom_node_point(
+    aes(
+      color = color,
+      size = ifelse(module == focal_module_name, 6, 2.5),
+      alpha = ifelse(module == focal_module_name, 1, 0.4)
+    )
+  ) +
+  # NB_M9 hub genes (bold), Ldh excluded here so it can be emphasised separately
+  geom_node_text(
+    aes(label = ifelse(module == focal_module_name & name != "Ldh", name, ""),
+        color = color),
+    repel = TRUE, max.overlaps = Inf, size = 4, fontface = "bold",
+    box.padding = 0.5, point.padding = 0.35, seed = GLOBAL_SEED
+  ) +
+  # Ldh: larger and bold, same module colour as the rest of NB_M9
+  geom_node_text(
+    aes(label = ifelse(name == "Ldh", "Ldh", ""), color = color),
+    repel = TRUE, max.overlaps = Inf, size = 6, fontface = "bold",
+    box.padding = 0.5, point.padding = 0.35, seed = GLOBAL_SEED
+  ) +
+  scale_color_identity() +
+  scale_size_identity() +
+  scale_alpha_identity() +
+  theme_void() +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 14))
+
+print(focal_plot_kk)
+```
+
+
+## Integrated analysis
+
+To identify high-confidence candidate genes driving the ND-75 KD phenotype, we intersect three independent lines of evidence:
+
+1. Pseudobulk differential expression (edgeR, FDR < 0.05, logFC ≥ 1)
+2. Co-expression module membership in hdWGCNA modules positively correlated with ND75-KD (kME ≥ 0.35)
+3. Membership in the target gene sets of statistically significant upregulated SCENIC regulons (DRA FDR < 0.05, rank-biserial r ≥ 0.2).
+
+Genes appearing in all three are scored by a composite evidence score that integrates effect sizes across methods. Ldh-coupled TFs are those regulons that additionally show increased Spearman correlation with Ldh expression specifically in ND75-KD neuroblasts (Δρ > 0.2, Ldh FDR < 0.05).
+
+```{r}
+#| label: integrated-analysis
+#| code-summary: "Integrated edgeR / hdWGCNA / SCENIC gene-set intersection + evidence scoring"
+#| cache: false
+
+# edgeR gene set
+edgeR_up_genes <- deg_results %>%
+    filter(
+        FDR < 0.05, logFC >= 1.0,
+        is_artifact == FALSE | is.na(is_artifact),
+        !grepl(exclude_regex, gene, ignore.case = TRUE)
+    ) %>%
+    pull(gene)
+
+# hdWGCNA gene set
+hdWGCNA_up_mods  <- me_stats %>% filter(fdr_cor < 0.05, delta > 0) %>% pull(module)
+hdWGCNA_up_genes <- nb_modules %>%
+    filter(module %in% hdWGCNA_up_mods) %>%
+    rowwise() %>%
+    filter(get(paste0("kME_", module)) >= 0.35) %>%
+    ungroup() %>%
+    filter(!grepl(exclude_regex, gene_name, ignore.case = TRUE)) %>%
+    pull(gene_name) %>%
+    unique()
+
+# Stricter TF pool for upstream regulator annotation only
+core_tf_pool_auc <- scenic_nb_results_df %>%
+    filter(mw_fdr < 0.05, rank_biserial_r >= 0.2) %>%
+    pull(TF) %>%
+    paste0("(+)")
+
+# SCENIC gene set
+core_scenic_raw <- bind_rows(lapply(core_tf_pool_auc, function(reg) {
+    targets     <- unique(unlist(regulons_list[[reg]]))
+    translated  <- sapply(targets, function(x) {
+        m <- global_rescue_df$Original_Symbol[global_rescue_df$SCENIC_DB_Symbol == x]
+        if (length(m) > 0) m[1] else x
+    })
+    data.frame(
+        gene           = unname(translated),
+        regulon        = reg,
+        ldh_coupled_tf = reg %in% ldh_coupled_regs
+    )
+}))
+
+scenic_up_targets_final <- core_scenic_raw %>%
+    filter(!grepl(exclude_regex, gene, ignore.case = TRUE)) %>%
+    pull(gene) %>%
+    unique()
+
+# Pairwise intersections
+edgeR_hdWGCNA  <- intersect(edgeR_up_genes, hdWGCNA_up_genes)
+edgeR_SCENIC   <- intersect(edgeR_up_genes, scenic_up_targets_final)
+hdWGCNA_SCENIC <- intersect(hdWGCNA_up_genes, scenic_up_targets_final)
+
+# Triple-positive core
+triple_up_core <- Reduce(
+    intersect,
+    list(edgeR_up_genes, hdWGCNA_up_genes, scenic_up_targets_final)
+)
+
+# Build component tables
+core_edger <- deg_results %>%
+    filter(gene %in% triple_up_core) %>%
+    dplyr::select(gene, edgeR_logFC = logFC, edgeR_FDR = FDR)
+
+core_wgcna <- bind_rows(lapply(triple_up_core, function(g) {
+    gi  <- nb_modules[nb_modules$gene_name == g, ]
+    if (nrow(gi) == 0) return(NULL)
+    mod <- gi$module[1]
+    data.frame(gene = g, module = mod,
+               kME_value = gi[[paste0("kME_", mod)]][1])
+}))
+
+core_scenic <- core_scenic_raw %>%
+    filter(gene %in% triple_up_core) %>%
+    group_by(gene) %>%
+    summarize(
+        TFs = paste(
+            unique(sub("\\([+-]\\)$", "", regulon)),
+            collapse = ", "
+        ),
+        TF_count = n_distinct(regulon),
+        # Which upstream TFs are also Ldh-coupled?
+        ldh_coupled_TFs = paste(
+            unique(sub("\\([+-]\\)$", "", regulon[ldh_coupled_tf])),
+            collapse = ", "
+        ),
+        .groups = "drop"
+    )
+
+core_master_stats <- core_edger %>%
+    left_join(core_wgcna,  by = "gene") %>%
+    left_join(core_scenic, by = "gene") %>%
+    left_join(global_annotation_map, by = "gene") %>%
+    arrange(desc(edgeR_logFC))
+
+# Master regulator hierarchy
+master_regulators <- core_master_stats %>%
+    dplyr::select(gene, TFs) %>%
+    distinct() %>%
+    separate_rows(TFs, sep = ", ") %>%
+    filter(!is.na(TFs), TFs != "") %>%
+    group_by(TFs) %>%
+    summarize(
+        target_count = n(),
+        targets      = paste(sort(unique(gene)), collapse = ", "),
+        ldh_coupled  = any(TFs %in% ldh_coupled_tfs),
+        .groups      = "drop"
+    ) %>%
+    arrange(desc(target_count))
+
+# Network core: which TFs target DE genes within upregulated modules
+network_core_analysis <- bind_rows(lapply(hdWGCNA_up_mods, function(mod) {
+    mod_genes <- nb_modules %>% filter(module == mod) %>% pull(gene_name)
+    core_scenic_raw %>%
+        filter(regulon %in% top_up_regs_auc, gene %in% mod_genes) %>%
+        group_by(regulon) %>%
+        summarise(
+            targets_in_mod    = n(),
+            de_targets_in_mod = sum(gene %in% edgeR_up_genes),
+            .groups = "drop"
+        ) %>%
+        filter(de_targets_in_mod > 0) %>%
+        mutate(module = mod)
+}))
+
+# ── Core-gene evidence scoring ────────────────────────────────────────────
+# Extends core_master_stats with per-gene TF metrics and the
+# composite evidence score.
+
+# Derive per-gene TF metrics from SCENIC
+tf_metrics_per_gene <- core_scenic_raw %>%
+    mutate(TF_clean = sub("\\([+-]\\)$", "", regulon)) %>%
+    left_join(
+        scenic_nb_results_df %>% dplyr::select(TF, rank_biserial_r, ldh_delta_rho),
+        by = c("TF_clean" = "TF")
+    ) %>%
+    group_by(gene) %>%
+    summarise(
+        mean_tf_rb_r         = mean(rank_biserial_r,  na.rm = TRUE),
+        max_tf_ldh_delta_rho = max(ldh_delta_rho,     na.rm = TRUE),
+        n_ldh_coupled_tfs    = sum(ldh_coupled_tf == TRUE, na.rm = TRUE),
+        .groups = "drop"
+    )
+
+core_master_stats <- core_master_stats %>%
+    left_join(tf_metrics_per_gene, by = "gene") %>%
+    left_join(
+        cor_df %>% dplyr::select(module, module_correlation = correlation),
+        by = "module"
+    )
+
+min_max <- function(x) {
+  (x - min(x, na.rm = TRUE)) / (max(x, na.rm = TRUE) - min(x, na.rm = TRUE) + 1e-10)
+}
+
+core_master_stats <- core_master_stats %>%
+    mutate(
+        evidence_score = round(
+            min_max(edgeR_logFC) +
+            min_max(kME_value) +
+            min_max(mean_tf_rb_r) +
+            min_max(max_tf_ldh_delta_rho),
+            2
+        ) * 25
+    ) %>%
+    arrange(desc(evidence_score))
+```
+
+
+### Dual-positive: edgeR ∩ hdWGCNA (Figure 2G)
+
+Genes appearing in both the edgeR differentially expressed set (FDR < 0.05, |log2FC| ≥ 1) and the significant hdWGCNA co-expression modules (kME ≥ 0.35). The table below lists each gene with its edgeR and kME statistics; the Euler diagram then shows the two set sizes and their overlap.
+
+```{r}
+#| label: edgeR-hdWGCNA-overlap-table
+#| code-summary: "edgeR ∩ hdWGCNA overlap table"
+# --- Prepare Data for the 2-Way Table ---
+edgeR_hdWGCNA_stats <- deg_results %>%
+  filter(gene %in% edgeR_hdWGCNA) %>%
+  dplyr::select(gene, edgeR_logFC = logFC, edgeR_FDR = FDR) %>%
+  left_join(
+    bind_rows(lapply(edgeR_hdWGCNA, function(g) {
+      gene_info <- nb_modules[nb_modules$gene_name == g, ]
+      if(nrow(gene_info) > 0) {
+        mod <- gene_info$module[1]
+        return(data.frame(gene = g, module = mod, kME_value = gene_info[[paste0("kME_", mod)]][1]))
+      } else return(NULL)
+    })), by = "gene"
+  ) %>%
+  left_join(global_annotation_map, by = "gene") %>%
+  arrange(desc(edgeR_logFC))
+
+# --- Display the Table ---
+div(
+  style = "margin-top: 40px; font-family: sans-serif;",
+  reactable(
+    edgeR_hdWGCNA_stats,
+    pagination = TRUE,
+    defaultPageSize = 15,
+    highlight = TRUE,
+    compact = TRUE,
+    bordered = TRUE,
+    columns = list(
+      gene = colDef(
+        name = "Gene",
+        html = TRUE,
+        cell = function(value, index) {
+          fbid <- edgeR_hdWGCNA_stats$fb_id[index]
+          if(!is.na(fbid)) make_flybase_link(fbid, value) else value
+        },
+        style = list(fontStyle = "italic")
+      ),
+      fb_id = colDef(show = FALSE),
+      edgeR_logFC = colDef(name = "log2FC", format = colFormat(digits = 2)),
+      edgeR_FDR = colDef(name = "FDR", cell = function(value) formatC(value, format = "e", digits = 2)),
+      module = colDef(name = "Module"),
+      kME_value = colDef(name = "kME", format = colFormat(digits = 3))
+    )
+  )
+)
+```
+
+```{r}
+#| label: fig-venn-edger-wgcna-final
+#| code-summary: "edgeR ∩ hdWGCNA Venn diagram (Figure 2G)"
+#| fig-cap: "Area-proportional Euler diagram showing overlap between edgeR upregulated DEGs (FDR < 0.05, log2FC ≥ 1) and hdWGCNA ND75-KD-associated module genes (kME ≥ 0.35). Circle areas are proportional to set sizes. Overlap genes are listed on the right, ranked by composite evidence score."
+
+library(eulerr)
+library(dplyr)
+library(ggplot2)
+library(gridExtra)
+library(cowplot)
+
+# Define sets and calculate overlap
+edger_genes <- edgeR_up_genes
+
+wgcna_genes_filtered <- nb_modules %>%
+    filter(module %in% hdWGCNA_up_mods) %>%
+    rowwise() %>%
+    filter(get(paste0("kME_", module)) >= 0.35) %>%
+    ungroup() %>%
+    filter(!grepl(exclude_regex, gene_name, ignore.case = TRUE)) %>%
+    pull(gene_name)
+
+overlap_genes <- intersect(edger_genes, wgcna_genes_filtered)
+
+# Order overlap genes by evidence score
+ordered_overlap_genes <- core_master_stats %>%
+    filter(gene %in% overlap_genes) %>%
+    arrange(desc(evidence_score)) %>%
+    pull(gene)
+
+# Catch any genes missing from the stats dataframe
+missing_genes <- setdiff(overlap_genes, ordered_overlap_genes)
+ordered_overlap_genes <- c(ordered_overlap_genes, missing_genes)
+
+# Create Euler fit and plot object
+venn_fit <- euler(c(
+    "edgeR" = length(setdiff(edger_genes, wgcna_genes_filtered)),
+    "hdWGCNA" = length(setdiff(wgcna_genes_filtered, edger_genes)),
+    "edgeR&hdWGCNA" = length(overlap_genes)
+))
+
+euler_plot <- plot(
+    venn_fit,
+    labels = FALSE,
+    quantities = list(cex = 1.2, col = "#222222", fontface = 1L), # 1L for plain font
+    fills = list(fill = c("#E64B35", "#4DBBD5"), alpha = 0.65),
+    edges = list(lwd = 3, col = "white"),
+    margins = unit(c(0, 0, 0, 0), "pt")
+)
+
+# Prepare Table Grob
+col_name <- paste0("Overlapping genes")
+gene_df <- data.frame(ordered_overlap_genes, check.names = FALSE)
+colnames(gene_df) <- col_name
+
+# Ensure ttheme_latex is defined with plain headers and no borders
+ttheme_latex <- ttheme_minimal(
+  core = list(
+    fg_params = list(fontface = 3L, fontsize = 10, col = "#333333"),
+    bg_params = list(fill = c("#fcfcfc", "#ffffff"))
+  ),
+  colhead = list(
+    fg_params = list(fontface = 2L, fontsize = 11, col = "#111111"),
+    bg_params = list(col = NA, fill = "white", lwd = 0)
+  )
+)
+
+table_grob <- tableGrob(gene_df, theme = ttheme_latex, rows = NULL)
+
+# Assemble the final figure on a single canvas
+# Coordinate system is 0 to 1
+venn_plot <- ggdraw() +
+  # Place Euler Circles: width=0.6 makes them smaller, x=0.05 shoves them left
+  draw_plot(euler_plot, x = 0.05, y = 0.05, width = 0.6, height = 0.8) +
+
+  # Place Table: x=0.68 brings it very close to the blue circle
+  draw_grob(table_grob, x = 0.68, y = 0.1, width = 0.25, height = 0.7) +
+
+  # Symmetric Labels (Plain font via fontface = 1L)
+  # Left Label: Shifted to 0.19 for better spacing
+  draw_text("Differentially Expressed Genes\n(edgeR)",
+            x = 0.19, y = 0.88, color = "black", size = 11, lineheight = 0.9, fontface = 1L) +
+
+  # Right Label: Updated to 'Co-expression Hub Genes' and centered over blue circle
+  draw_text("Co-expression Hub Genes\n(hdWGCNA)",
+            x = 0.50, y = 0.88, color = "black", size = 11, lineheight = 0.9, fontface = 1L) +
+
+  # Centered Title
+  draw_label("Upregulated genes in ND-75 Neuroblasts",
+             x = 0.5, y = 0.96, fontface = "bold", size = 16)
+
+# Render and Save
+ggsave(
+  filename = here(output_dir, "Venn_edgeR_hdWGCNA_Overlap.pdf"),
+  plot = venn_plot,
+  device = cairo_pdf,
+  width = 10, height = 6
+)
+
+# Save PNG (Raster)
+# Using ragg::agg_png directly ensures high-quality anti-aliasing
+# without the 'type' warning
+ggsave(
+  filename = here(output_dir, "Venn_edgeR_hdWGCNA_Overlap.png"),
+  plot = venn_plot,
+  device = ragg::agg_png,
+  width = 10, height = 6,
+  dpi = 300,
+  bg = "white"
+)
+
+venn_plot
+```
+
+### Integrated core: upregulated in edgeR, hdWGCNA and SCENIC
+
+`r nrow(core_master_stats)` genes at the intersection of significant upregulation in edgeR (FDR < 0.05, log2FC > 1), hdWGCNA (FDR < 0.05, delta > 0), and SCENIC (DRA FDR < 0.05, activity log2FC > 0).
+
+```{r}
+#| label: display-integrated-core-table
+#| code-summary: "Integrated triple-positive core table"
+#| cache: false
+
+div(
+  style = "margin-top: 40px; font-family: sans-serif;",
+  reactable(
+    core_master_stats,
+    pagination = FALSE,
+    highlight = TRUE,
+    compact = TRUE,
+    bordered = TRUE,
+    columns = list(
+      gene = colDef(
+        name = "Gene",
+        html = TRUE,
+        align = "left",
+        cell = function(value, index) {
+          fbid <- core_master_stats$fb_id[index]
+          if(!is.na(fbid)) make_flybase_link(fbid, value) else value
+        },
+        style = list(fontStyle = "italic")
+      ),
+      fb_id = colDef(show = FALSE),
+      edgeR_logFC = colDef(name = "log2FC", format = colFormat(digits = 2)),
+      edgeR_FDR = colDef(
+        name = "FDR",
+        cell = function(value) formatC(value, format = "e", digits = 2) # 3 sig digits
+      ),
+      kME_value = colDef(name = "kME", format = colFormat(digits = 3)),
+      TFs = colDef(
+        name = "Upstream Regulators",
+        html = TRUE,
+        align = "left",
+        style = list(fontSize = "0.85em"),
+        cell = function(value, index) {
+          if (is.na(value) || value == "") return("")
+          tfs_list    <- strsplit(value, ", ")[[1]]
+          coupled_str <- core_master_stats$ldh_coupled_TFs[index]
+          coupled_set <- if (!is.na(coupled_str) && coupled_str != "")
+                             strsplit(coupled_str, ", ")[[1]] else character(0)
+          n_total   <- length(tfs_list)
+          n_coupled <- length(coupled_set)
+          # Count badge: "3 TFs (2 Ldh★)"
+          badge <- paste0(
+            '<span style="font-weight:bold;color:#555;font-size:0.95em">',
+            n_total, ' TF', if (n_total != 1) "s" else "",
+            if (n_coupled > 0) paste0(
+              ' <span style="color:#67001F">(', n_coupled, ' Ldh&#9733;)</span>'
+            ) else "",
+            '</span><br>'
+          )
+          links <- sapply(tfs_list, function(tf) {
+            match_row <- global_annotation_map[global_annotation_map$gene == tf, ]
+            link_txt  <- if (nrow(match_row) > 0 && !is.na(match_row$fb_id[1]))
+                             as.character(make_flybase_link(match_row$fb_id[1], tf))
+                         else tf
+            if (tf %in% coupled_set)
+                paste0('<span style="color:#67001F;font-weight:bold">', link_txt, ' &#9733;</span>')
+            else link_txt
+          })
+          htmltools::HTML(paste0(badge, paste(links, collapse = ", ")))
+        }
+      ),
+      # Hide redundant columns now encoded in the Upstream Regulators cell
+      TF_count          = colDef(show = FALSE),
+      ldh_coupled_TFs   = colDef(show = FALSE),
+      n_ldh_coupled_tfs = colDef(show = FALSE),
+      # Hide intermediate scoring columns not relevant to the reader
+      mean_tf_rb_r         = colDef(show = FALSE),
+      max_tf_ldh_delta_rho = colDef(show = FALSE),
+      module_correlation   = colDef(show = FALSE)
+    )
+  )
+)
+```
+
+### Master regulators of the core
+
+Transcription factors prioritized by their regulatory degree within the triple-positive core, representing functional drivers validated across expression, connectivity and motif enrichment.
+
+```{r}
+#| label: display-master-regulators-table
+#| code-summary: "Master-regulator hierarchy table"
+#| cache: false
+
+div(
+  style = "margin-top: 40px; font-family: sans-serif;",
+  reactable(
+    master_regulators,
+    compact = TRUE,
+    bordered = TRUE,
+    columns = list(
+      TFs = colDef(
+        name = "Transcription Factor",
+        html = TRUE,
+        style = list(fontWeight = "bold"),
+        cell = function(value) {
+          # Clean name to ensure match with annotation map
+          tf_clean <- gsub("\\(\\+\\)", "", value)
+          match_row <- global_annotation_map[global_annotation_map$gene == tf_clean, ]
+
+          if (nrow(match_row) > 0 && !is.na(match_row$fb_id[1])) {
+            make_flybase_link(match_row$fb_id[1], tf_clean)
+          } else {
+            tf_clean
+          }
+        }
+      ),
+      ldh_coupled = colDef(
+    name  = "Ldh-Coupled",
+    width = 110,
+    style = function(value) {
+        if (isTRUE(value)) list(color = "#67001F", fontWeight = "bold")
+        else list(color = "#bbb")
+    },
+    cell = function(value) if (isTRUE(value)) "● Ldh" else "—"
+),
+      target_count = colDef(name = "Degree", width = 100),
+      targets = colDef(
+        name = "Regulated Core Genes",
+        html = TRUE,
+        align = "left",
+        style = list(fontSize = "0.85em", fontStyle = "italic"),
+        cell = function(value) {
+          if (is.na(value) || value == "") return("")
+
+          # Split comma-separated targets
+          gene_list <- strsplit(value, ", ")[[1]]
+
+          # Map each gene to its FlyBase link
+          links <- sapply(gene_list, function(g) {
+            match_row <- global_annotation_map[global_annotation_map$gene == g, ]
+            if (nrow(match_row) > 0 && !is.na(match_row$fb_id[1])) {
+              as.character(make_flybase_link(match_row$fb_id[1], g))
+            } else {
+              g
+            }
+          })
+
+          htmltools::HTML(paste(links, collapse = ", "))
+        }
+      )
+    )
+  )
+)
+```
+
+
+### Core gene multi-evidence ranking
+
+Score = sum of z-normalised evidence: edgeR |log~2~FC|, significance (−log~10~ FDR), hdWGCNA kME, mean upstream TF *r*, and *Ldh* coupling (Δρ, floored at 0). Higher score suggests stronger multi-analysis support.
+
+```{r}
+#| label: core-gene-score-table
+#| code-summary: "Core-gene evidence-score table"
+#| cache: false
+
+score_table_data <- core_master_stats %>%
+    dplyr::select(
+        gene, fb_id, evidence_score,
+        edgeR_logFC, kME_value,
+        mean_tf_rb_r, n_ldh_coupled_tfs
+    ) %>%
+    mutate(
+        evidence_score = round(evidence_score, 3),
+        edgeR_logFC    = signif(edgeR_logFC, 3),
+        kME_value      = signif(kME_value, 3),
+        mean_tf_rb_r   = signif(mean_tf_rb_r, 3)
+    )
+
+max_score <- max(abs(score_table_data$evidence_score), na.rm = TRUE)
+
+div(
+    style = "margin-top: 40px; font-family: sans-serif;",
+    reactable(
+        score_table_data,
+        pagination        = FALSE,
+        highlight         = TRUE,
+        compact           = TRUE,
+        bordered          = TRUE,
+        defaultSortOrder  = "desc",
+        defaultSorted     = list(evidence_score = "desc"),
+        defaultColDef     = colDef(align = "center"),
+        columns = list(
+            gene = flybase_column(score_table_data),
+            fb_id = colDef(show = FALSE),
+            evidence_score = colDef(
+                name = "Evidence Score",
+                cell = function(value) {
+                    width <- paste0((abs(value) / max_score) * 100, "%")
+                    color <- if (value >= 0) "#B2182B" else "#2166AC"
+                    bar_container <- div(
+                        style = list(display = "flex", alignItems = "center",
+                                     width = "120px", height = "18px"),
+                        div(style = list(width = "50%", display = "flex",
+                                         justifyContent = "flex-end"),
+                            if (value < 0)
+                                div(style = list(background = color, width = width,
+                                                 height = "10px", borderRadius = "2px"))),
+                        div(style = list(width = "1px", height = "100%",
+                                         background = "#ccc", margin = "0 2px")),
+                        div(style = list(width = "50%", display = "flex",
+                                         justifyContent = "flex-start"),
+                            if (value >= 0)
+                                div(style = list(background = color, width = width,
+                                                 height = "10px", borderRadius = "2px")))
+                    )
+                    div(style = list(display = "flex", alignItems = "center"),
+                        span(style = list(width = "45px", textAlign = "right",
+                                          marginRight = "10px"), value),
+                        bar_container)
+                }
+            ),
+            edgeR_logFC       = colDef(name = "log2FC"),
+            kME_value         = colDef(name = "kME"),
+            mean_tf_rb_r      = colDef(name = "Mean TF rb-r"),
+            n_ldh_coupled_tfs = colDef(name = "Ldh-Coupled TFs")
+        )
+    )
+)
+```
+## Session Info
+
+```{r}
+#| label: session-info
+#| echo: false
+#| output: asis
+
+cat("::: {.callout-note collapse='true'}\n")
+cat("## Session Information\n\n")
+cat("```\n")
+print(sessionInfo())
+cat("\n```\n")
+cat(":::\n")
+```

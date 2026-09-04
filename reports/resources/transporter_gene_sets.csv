@@ -1,0 +1,80 @@
+panel,class,gene,note
+S8E,amino_acid,aralar1,mitochondrial aspartate/glutamate carrier (SLC25A12)
+S8E,amino_acid,Balat,
+S8E,amino_acid,CD98hc,heterodimeric amino acid transporter heavy chain (SLC3A2)
+S8E,amino_acid,CG12531,
+S8E,amino_acid,CG12773,
+S8E,amino_acid,CG13248,
+S8E,amino_acid,CG13384,
+S8E,amino_acid,CG13743,
+S8E,amino_acid,CG1607,
+S8E,amino_acid,CG1628,
+S8E,amino_acid,CG16700,
+S8E,amino_acid,CG1698,
+S8E,amino_acid,CG17119,
+S8E,amino_acid,CG30394,
+S8E,amino_acid,CG32079,
+S8E,amino_acid,CG43693,
+S8E,amino_acid,CG4476,
+S8E,amino_acid,CG5535,
+S8E,amino_acid,CG7888,
+S8E,amino_acid,CG8785,
+S8E,amino_acid,CG8850,
+S8E,amino_acid,colt,mitochondrial carrier (SLC25)
+S8E,amino_acid,dmGlut,
+S8E,amino_acid,Eaat1,excitatory amino acid transporter (SLC1)
+S8E,amino_acid,Eaat2,excitatory amino acid transporter (SLC1)
+S8E,amino_acid,Gat,GABA transporter (SLC6)
+S8E,amino_acid,gb,cystine/glutamate exchanger (SLC7, xCT-like)
+S8E,amino_acid,GC1,
+S8E,amino_acid,GC2,
+S8E,amino_acid,GlyT,glycine transporter (SLC6)
+S8E,amino_acid,kcc,K-Cl cotransporter (SLC12)
+S8E,amino_acid,List,
+S8E,amino_acid,mah,
+S8E,amino_acid,MME1,mitochondrial glutamate carrier (SLC25)
+S8E,amino_acid,mnd,minidiscs; cationic amino acid transporter (SLC7)
+S8E,amino_acid,NAAT1,nutrient amino acid transporter (SLC6)
+S8E,amino_acid,Ncc69,Na-K-Cl cotransporter (SLC12)
+S8E,amino_acid,NKCC,Na-K-Cl cotransporter (SLC12)
+S8E,amino_acid,Ntl,
+S8E,amino_acid,path,pathetic; amino acid transporter (SLC7)
+S8E,amino_acid,slif,slimfast; arginine transporter (SLC7)
+S8E,amino_acid,tadr,amino acid transporter (SLC7)
+S8E,amino_acid,VGAT,vesicular GABA transporter (SLC32)
+S8E,amino_acid,VGlut,vesicular glutamate transporter (SLC17)
+S8E,amino_acid,ChT,choline transporter (SLC5)
+S8E,amino_acid,sbm,sobremesa; amino acid transporter (SLC7)
+S8E,amino_acid,Sfxn1-3,sideroflexin; serine transporter
+S8E,amino_acid,Ucp4A,mitochondrial uncoupling protein (SLC25)
+S8E,amino_acid,CG4995,
+S8E,amino_acid,CG5646,
+S8E,amino_acid,Sfxn2,sideroflexin; serine transporter
+S8F,monocarboxylate,Indy,I'm not dead yet; dicarboxylate/citrate transporter (SLC13)
+S8F,monocarboxylate,sPLA2,secreted phospholipase A2 -- annotation-broad; retained to match Fig S8F
+S8F,monocarboxylate,GIIIspla2,secreted phospholipase A2 -- annotation-broad; retained to match Fig S8F
+S8F,monocarboxylate,Fatp1,fatty-acid transport protein (SLC27)
+S8F,monocarboxylate,CG42237,
+S8F,monocarboxylate,CG13907,
+S8F,monocarboxylate,CG8468,
+S8F,monocarboxylate,VGAT,vesicular GABA transporter (SLC32) -- also listed in the amino-acid panel
+S8F,monocarboxylate,Sln,
+S8F,monocarboxylate,Mpc1,mitochondrial pyruvate carrier
+S8F,monocarboxylate,Prestin,anion transporter / motor protein (SLC26) -- annotation-broad; retained to match Fig S8F
+S8F,monocarboxylate,Pmp70,peroxisomal ABC transporter (ABCD3)
+S8F,monocarboxylate,CG8051,
+S8F,monocarboxylate,CG8034,
+S8F,monocarboxylate,CG14196,
+S8F,monocarboxylate,GXIVsPLA2,secreted phospholipase A2 -- annotation-broad; retained to match Fig S8F
+S8F,monocarboxylate,CG9399,
+S8F,monocarboxylate,CG9396,
+S8F,monocarboxylate,Nrx-1,neurexin 1 -- annotation-broad; retained to match Fig S8F
+S8F,monocarboxylate,out,outsiders; monocarboxylate transporter (SLC16)
+S8F,monocarboxylate,CG3009,
+S8F,monocarboxylate,Gat,GABA transporter (SLC6) -- also listed in the amino-acid panel
+S8F,monocarboxylate,CG32832,
+S8F,monocarboxylate,CG12866,
+S8F,monocarboxylate,CG8389,
+S8F,monocarboxylate,hrm,monocarboxylate transporter (SLC16)
+S8F,monocarboxylate,Mct1,monocarboxylate transporter (SLC16)
+S8F,monocarboxylate,CG10019,
