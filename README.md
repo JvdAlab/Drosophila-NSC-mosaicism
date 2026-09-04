@@ -32,11 +32,11 @@ Complex I / *ND-42* RNAi in NSCs against control.
 
 | Analysis | Description | Report | Source |
 |----------|-------------|--------|--------|
-| Single-cell RNA-seq | Raw object setup, doublet detection, adaptive QC, scVI representation, clustering, annotation, Seurat conversion | — | [scRNA_pipeline/](scRNA_pipeline/) |
-| Pseudobulk DGE | Sample-level pseudobulk construction and edgeR differential expression | — | [edgeR/](edgeR/) |
-| Co-expression networks | Neuroblast hdWGCNA co-expression network construction | — | [hdWGCNA/](hdWGCNA/) |
-| Gene regulatory networks | pySCENIC GRN inference, motif pruning, regulon AUC scoring (DVC pipeline) | — | [pySCENIC/](pySCENIC/) |
-| Metabolomics | Larval-brain differential abundance (limma) and metabolite-set enrichment (fgsea) | — | [metabolomics/](metabolomics/) |
+| Single-cell RNA-seq | Raw object setup, doublet detection, adaptive QC, scVI representation, clustering, annotation, Seurat conversion | [plot_manuscript_figures.html](reports/plot_manuscript_figures.html) | [scRNA_pipeline/](scRNA_pipeline/) |
+| Pseudobulk DGE | Sample-level pseudobulk construction and edgeR differential expression | [plot_manuscript_figures.html](reports/plot_manuscript_figures.html) | [edgeR/](edgeR/) |
+| Co-expression networks | Neuroblast hdWGCNA co-expression network construction | [gene_network_analysis.html](reports/gene_network_analysis.html) | [hdWGCNA/](hdWGCNA/) |
+| Gene regulatory networks | pySCENIC GRN inference, motif pruning, regulon AUC scoring (DVC pipeline) | [gene_network_analysis.html](reports/gene_network_analysis.html) | [pySCENIC/](pySCENIC/) |
+| Metabolomics | Larval-brain differential abundance (limma) and metabolite-set enrichment (fgsea) | [plot_manuscript_figures.html](reports/plot_manuscript_figures.html) | [metabolomics/](metabolomics/) |
 | Statistical analysis | Clone/brain/cell-level mixed-model statistics for the confocal/genetics figure panels (lme4/lmerTest, Type III ANOVA, emmeans, DHARMa) | [statistical_analysis.html](statistical_analysis/statistical_analysis.html) | [statistical_analysis/](statistical_analysis/) |
 | Figure reports | Quarto reports assembling network, SCENIC, GO, and metabolomics figure panels | [reports/](reports/) | [reports/](reports/) |
 | Image analysis | ImageJ/Fiji panorama-analysis Java component | — | [Deadpanorama/](Deadpanorama/) |
@@ -54,9 +54,11 @@ Drosophila-NSC-mosaicism/
 ├── metabolomics/            # Differential abundance (limma) + enrichment (fgsea)
 ├── statistical_analysis/    # Mixed-model statistics for the confocal/genetics panels
 ├── reports/                 # Quarto figure-panel reports
-├── Deadpanorama/            # ImageJ/Fiji Java component
-└── results/                 # Derived outputs
+└── Deadpanorama/            # ImageJ/Fiji Java component
 ```
+
+Pipeline outputs are written to a local `results/` directory at run time; it
+is git-ignored and not part of this checkout (see Data Availability below).
 
 See each module's `README.md` for full parameters, dependencies, and usage.
 
@@ -94,9 +96,7 @@ conda activate <conda env name>
 ## Data Availability
 
 Large inputs, reference databases, and generated results are external
-artifacts, deposited or archived separately. The metabolomics input table is
-the exception — it is small and committed under
-[`metabolomics/data/raw/`](metabolomics/data/raw/).
+artifacts, deposited or archived separately.
 
 | Dataset | Repository | Accession |
 |:--------|:-----------|:----------|
@@ -104,12 +104,10 @@ the exception — it is small and committed under
 | Larval-brain untargeted metabolomics | Metabolomics Workbench / MetaboLights | normalized abundance table committed in repo; raw spectra pending |
 | SCENIC input AnnData and reference resources | Zenodo / archive | pending (SHA256 checksums in module READMEs) |
 
-Per-artifact documentation:
-
-- [pySCENIC input AnnData](pySCENIC/data/pyscenic_input/README.md): Annotated Neuroblast subset
-- [pySCENIC reference resources](pySCENIC/resources/pyscenic/README.md): Motif databases, TF list
-- [scRNA-seq raw inputs](scRNA_pipeline/data/raw/README.md): Per-sample Cell Ranger matrices and samplesheet
-- [Metabolomics input](metabolomics/data/raw/README.md): normalized abundance table, committed under `metabolomics/data/raw/`
+Each `data/` or `resources/` directory that expects an external file carries a
+README naming exactly what belongs there and, where applicable, its SHA256
+checksum; see that module's own README (linked from the Analyses table
+above) for what it holds and where it comes from.
 
 ---
 
