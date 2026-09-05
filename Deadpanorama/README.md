@@ -7,16 +7,19 @@ channel, reconstructs them in 3D, and measures signal in the image channels for
 each reconstructed nucleus.
 
 The Maven coordinates declared by the project are `uk.ac.cam.gurdon:Deadpanorama:0.10.2`.
-`pom.xml` and the Java source live under `src/main/java/`, alongside legacy
-compiled `.class` files (Java 8) kept for reference; see Installation below for the current, versioned JAR.
+`pom.xml` and the Java source live under `src/main/java/`; see Installation below for
+the pre-built JAR.
+
+**Author:** Richard Butler ([rsb48@cam.ac.uk](mailto:rsb48@cam.ac.uk),
+[ORCID 0000-0002-3885-1332](https://orcid.org/0000-0002-3885-1332)), Gurdon
+Institute, University of Cambridge, developed Deadpanorama.
 
 ## Installation
 
-A pre-built plugin, `target/Deadpanorama-0.10.2.jar` (Java 21; with a
-companion `target/Deadpanorama-0.10.2-sources.jar`), is versioned in this
-repository and can be installed directly: copy it into `Fiji.app/plugins/`,
-or install it through **Plugins > Install…** in Fiji, then skip to step 4
-below.
+A pre-built `Deadpanorama-0.10.2.jar` is attached to the corresponding
+[GitHub Release](../../releases); download it, copy it into
+`Fiji.app/plugins/` (or install it through **Plugins > Install…** in Fiji),
+then skip to step 4 below.
 
 To build from source instead:
 

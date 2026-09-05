@@ -39,7 +39,7 @@ Complex I / *ND-42* RNAi in NSCs against control.
 | Metabolomics | Larval-brain differential abundance (limma) and metabolite-set enrichment (fgsea) | [plot_manuscript_figures.html](reports/plot_manuscript_figures.html) | [metabolomics/](metabolomics/) |
 | Statistical analysis | Clone/brain/cell-level mixed-model statistics for the confocal/genetics figure panels (lme4/lmerTest, Type III ANOVA, emmeans, DHARMa) | [statistical_analysis.html](statistical_analysis/statistical_analysis.html) | [statistical_analysis/](statistical_analysis/) |
 | Figure reports | Quarto reports assembling network, SCENIC, GO, and metabolomics figure panels | [reports/](reports/) | [reports/](reports/) |
-| Image analysis | ImageJ/Fiji panorama-analysis Java component | — | [Deadpanorama/](Deadpanorama/) |
+| Image analysis | ImageJ/Fiji panorama-analysis Java component, developed by [Richard Butler](mailto:rsb48@cam.ac.uk) (Gurdon Institute, University of Cambridge) | — | [Deadpanorama/](Deadpanorama/) |
 
 ---
 
@@ -101,7 +101,7 @@ artifacts, deposited or archived separately.
 | Dataset | Repository | Accession |
 |:--------|:-----------|:----------|
 | scRNA-seq (10x, larval CNS neuroblast niche) | GEO | pending |
-| Larval-brain untargeted metabolomics | Metabolomics Workbench / MetaboLights | normalized abundance table committed in repo; raw spectra pending |
+| Larval-brain untargeted metabolomics | Metabolomics Workbench / MetaboLights | normalized abundance table; raw spectra pending |
 | SCENIC input AnnData and reference resources | Zenodo / archive | pending (SHA256 checksums in module READMEs) |
 
 Each `data/` or `resources/` directory that expects an external file carries a
@@ -140,3 +140,4 @@ released separately under the
 
 - Corresponding Author: [Jelle van den Ameele](mailto:jv361@cam.ac.uk)
 - Maintainer: [Abhilesh Dhawanjewar](mailto:ad2347@cam.ac.uk)
+- Deadpanorama author: [Richard Butler](mailto:rsb48@cam.ac.uk)
