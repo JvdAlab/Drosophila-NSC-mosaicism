@@ -4,13 +4,13 @@
   	<parent>
 		<groupId>org.scijava</groupId>
 		<artifactId>pom-scijava</artifactId>
-		<version>13.0.0</version>
+		<version>37.0.0</version>
 		<relativePath />
 	</parent>
   
   <groupId>uk.ac.cam.gurdon</groupId>
   <artifactId>Deadpanorama</artifactId>
-  <version>0.10.2</version>
+  <version>1.0.0</version>
   <name>Deadpanorama</name>
   <description>Deadpanorama</description>
   
@@ -49,34 +49,39 @@
 		</dependency>
 	</dependencies>
   
+  <!-- placeholder elements required by maven enforcer start here -->
+  <url>http://mycompany.com/</url>
 	<inceptionYear>2017</inceptionYear>
 	<organization>
-		<name>Gurdon Institute, University of Cambridge</name>
-		<url>https://www.gurdon.cam.ac.uk/</url>
+		<name>My Company</name>
+		<url>http://mycompany.com/</url>
 	</organization>
 	<licenses>
 		<license>
-			<name>GNU General Public License v3.0 or later</name>
-			<url>https://www.gnu.org/licenses/gpl-3.0.txt</url>
+			<name>Simplified BSD License</name>
 			<distribution>repo</distribution>
 		</license>
 	</licenses>
 
 	<developers>
-		<!-- Confirmed by Richard Butler by email 2026-09-05; GitHub handle still unconfirmed -->
+		<!-- See https://imagej.net/Team -->
 		<developer>
-			<id>rsb48</id>
-			<name>Richard Butler</name>
-			<email>rsb48@cam.ac.uk</email>
-			<url>https://www.gurdon.cam.ac.uk/</url>
+			<id>id</id>
+			<name>name</name>
+			<url>http://imagej.net/</url>
 			<roles>
 				<role>developer</role>
 			</roles>
-			<properties>
-				<orcid>0000-0002-3885-1332</orcid>
-			</properties>
 		</developer>
 	</developers>
+	<contributors>
+		<contributor>
+			<name>name</name>
+			<url>http://imagej.net/</url>
+			<roles><role>developer</role></roles>
+			<properties><id>id</id></properties>
+		</contributor>
+	</contributors>
 
 	<mailingLists>
 		<mailingList>
@@ -86,24 +91,24 @@
 	</mailingLists>
 
 	<scm>
-		<connection>scm:git:git://github.com/JvdAlab/Drosophila-NSC-mosaicism.git</connection>
-		<developerConnection>scm:git:git@github.com:JvdAlab/Drosophila-NSC-mosaicism.git</developerConnection>
+		<connection>scm:git:git://github.com/imagej/</connection>
+		<developerConnection>scm:git:git@github.com:imagej/</developerConnection>
 		<tag>HEAD</tag>
-		<url>https://github.com/JvdAlab/Drosophila-NSC-mosaicism</url>
+		<url>https://github.com/imagej/</url>
 	</scm>
 	<issueManagement>
 		<system>GitHub Issues</system>
-		<url>https://github.com/JvdAlab/Drosophila-NSC-mosaicism/issues</url>
+		<url>https://github.com/imagej/</url>
 	</issueManagement>
 	<ciManagement>
 		<system>None</system>
 	</ciManagement>
 
 	<properties>
-		<package-name>uk.ac.cam.gurdon.deadpanorama</package-name>
-		<main-class>uk.ac.cam.gurdon.deadpanorama.Deadpanorama</main-class>
-		<license.licenseName>gpl_v3</license.licenseName>
-		<license.copyrightOwners>Richard Butler</license.copyrightOwners>
+		<package-name>com.mycompany.imagej</package-name>
+		<main-class>com.mycompany.imagej.GaussFiltering</main-class>
+		<license.licenseName>bsd_2</license.licenseName>
+		<license.copyrightOwners>My Company, Inc.</license.copyrightOwners>
 	</properties>
   
 </project>
